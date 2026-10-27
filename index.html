@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>星球粉碎者</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="stage"><canvas id="c" aria-label="星球粉碎者遊戲畫面"></canvas></div>
+<div id="vig"></div>
+<div id="labels"><div id="nav"><i></i><b></b></div></div>
+<svg id="canopy" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+<defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#05070b" stop-opacity="0"/><stop offset="0.3" stop-color="#070a10" stop-opacity="0.92"/><stop offset="1" stop-color="#03050a"/></linearGradient></defs>
+<path d="M0 100 L0 84 Q8 90.5 24 92 L76 92 Q92 90.5 100 84 L100 100Z" fill="url(#cg)"/>
+<path d="M0 84 Q8 90.5 24 92 L76 92 Q92 90.5 100 84" fill="none" stroke="rgba(127,227,255,0.4)" stroke-width="1.2"/>
+<path d="M0 0 L4.6 0 Q1.4 30 0 68Z" fill="#04060b"/><path d="M100 0 L95.4 0 Q98.6 30 100 68Z" fill="#04060b"/>
+<path d="M0 0 L100 0 L100 2.6 Q50 5.4 0 2.6Z" fill="#04060b"/>
+</svg><canvas id="mk"></canvas><div id="cross"><i></i></div><div id="aim"></div>
+
+<div class="hud" aria-label="飛行狀態">
+  <div class="hud-l">
+    <div>
+      <div class="eyebrow">Planet Breaker</div>
+      <div id="score">0</div>
+      <div id="combo"><b id="comboN">×1</b><span id="comboT"></span><div class="cb"><i id="comboB"></i></div></div>
+      <div id="speed">0<small>km/s</small></div>
+      <div id="alt">深空巡航</div>
+    </div>
+    <div class="bar">
+      <div class="bar-h"><span>船體</span><output id="hullOut">100%</output></div>
+      <div class="bar-t"><div id="hullFill"></div></div>
+    </div>
+    <div class="bar">
+      <div class="bar-h"><span>推進能量</span><output id="enOut">100%</output></div>
+      <div class="bar-t"><div id="enFill"></div></div>
+    </div>
+    <div class="bar">
+      <div class="bar-h"><span>機炮溫度 · <b id="bombs">炸彈 3</b></span><output id="heatOut">0%</output></div>
+      <div class="bar-t"><div id="heatFill"></div></div>
+    </div>
+    <div class="bar" id="tgt">
+      <div class="bar-h"><span id="tgtName">—</span><output id="tgtOut"></output></div>
+      <div class="bar-t"><div id="tgtFill"></div></div>
+    </div>
+    <div class="pips" id="pips" role="img" aria-label="行星狀態"></div>
+    <div id="timer">00:00</div>
+  </div>
+  <div class="hud-r">
+    <canvas id="mini" aria-label="航線小地圖"></canvas>
+    <div class="tools">
+      <button id="bPause" type="button" aria-label="暫停">❚❚</button>
+      <button id="bMute" type="button" aria-label="音效開關" aria-pressed="false">音效</button>
+      <button id="bFull" type="button" aria-label="全螢幕">全螢幕</button>
+      <button id="bSens" type="button" aria-label="靈敏度">靈敏度 中</button>
+      <button id="bInv" type="button" aria-label="上下操作反轉" aria-pressed="false" title="上下反轉">上下</button>
+      <button id="bFull" type="button" aria-label="全螢幕" title="全螢幕">⛶</button>
+    </div>
+  </div>
+</div>
+
+<div id="news" aria-live="polite"></div>
+<div id="cap"><b></b><span></span></div>
+<div id="count"></div>
+<div id="stick"><div id="knob"></div></div>
+<button id="bFire" class="tbtn" type="button" aria-label="射擊">射擊</button>
+<button id="bBomb" class="tbtn" type="button" aria-label="炸彈">炸彈 3</button>
+<button id="bBoost" class="tbtn" type="button" aria-label="加速">加速</button>
+<div id="keys">滑鼠 瞄準　左鍵 射擊　右鍵／E 炸彈　W／S 前進／減速　A／D 平移　空白 上升　C 下降　Shift 加速　F 全螢幕　Esc 暫停</div>
+
+<div class="overlay" id="ovMenu">
+  <div class="card">
+    <div class="eyebrow">Planet Breaker · 太陽系清場</div>
+    <h1>星球<span>粉碎者</span></h1>
+    <p class="lede">你是一架太空戰鬥機。任務只有一個：把太陽系的九顆行星，在它們繞日運行時一顆一顆追上去打碎。</p>
+    <ul class="rules">
+      <li><b>追擊戰：</b>九顆行星（水金地火木土天海冥）依真實軌道、傾角與自轉方向繞著太陽運行，一直在動。你要追上去、預判位置。</li>
+      <li><b>打碎行星：</b>行星沒有護盾，只有血量，越大的行星血量越多。血量歸零就會崩解。</li>
+      <li><b>敵艦滿宇宙：</b>戰鬥機、太空梭、戰艦散佈在各處，頭上有紅色血條。靠近他們會主動攻擊你，戰艦火力最猛，擊沉可回復船體。</li>
+      <li><b>連擊與強化：</b>連擊倍率最高 ×5；每擊碎一顆行星可三選一強化。九顆都碎後，太陽守衛現身。</li>
+      <li class="k"><b>操作：</b>滑鼠瞄準（點擊後鎖定游標），左鍵射擊，右鍵／E 炸彈。<b>W 前進、S 減速、A／D 平移、空白鍵上升、C 下降、Shift 加速</b>。方向鍵 ↑↓ 前進／減速、←→ 純平移（機身不傾斜），視角只由滑鼠控制。F 全螢幕。</li>
+      <li class="t"><b>操作：</b>左半邊拖曳瞄準（自動前進），右下「射擊」「炸彈」「加速」。</li>
+    </ul>
+    <div class="actions"><button id="bStart" class="primary" type="button">出擊</button><button id="bFullM" type="button">全螢幕 (F)</button></div>
+    <p class="credit" id="fsNote"></p>
+    <p class="credit">虛構的娛樂遊戲，請勿在現實中炸星球。行星依真實軌道順序排列，距離與尺寸經過壓縮；貼圖來自 NASA、Solar System Scope、Planet Pixel Emporium 等。</p>
+  </div>
+</div>
+
+<div class="overlay" id="ovPause" hidden>
+  <div class="card">
+    <h2>暫停中</h2>
+    <p class="lede">按「繼續」回到戰鬥，電腦版會重新鎖定滑鼠。</p>
+    <div class="actions">
+      <button id="bResume" class="primary" type="button">繼續</button>
+      <button id="bRestartP" type="button">重新出擊</button>
+      <button id="bFullP" type="button">全螢幕 (F)</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="ovPick" hidden>
+  <div class="pickc">
+    <div class="eyebrow">Upgrade · 戰利品</div>
+    <h2>選一項強化</h2>
+    <div id="cards"></div>
+    <div class="actions" style="justify-content:center;margin-top:18px"><button id="bPickOk" class="primary" type="button" disabled>請先選一項</button></div>
+    <p class="credit" style="max-width:none;text-align:center">點選卡片（或按 1／2／3），再按下方「確定」（或 Enter）。強化會保留到本局結束。</p>
+  </div>
+</div>
+
+<div class="overlay" id="ovEnd" hidden>
+  <div class="card">
+    <div class="eyebrow" id="endEye">旅程結束</div>
+    <h2 id="endTitle">—</h2>
+    <p class="lede" id="endText"></p>
+    <div id="endScore">0</div>
+    <dl class="stats" id="endStats"></dl>
+    <div class="actions"><button id="bAgain" class="primary" type="button">再炸一次</button></div>
+  </div>
+</div>
+
+<div id="msg">載入天體貼圖…</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+<script src="js/textures.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
