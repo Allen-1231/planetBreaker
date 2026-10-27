@@ -69,20 +69,23 @@
 <button id="bFire" class="tbtn" type="button" aria-label="射擊">射擊</button>
 <button id="bBomb" class="tbtn" type="button" aria-label="炸彈">炸彈 3</button>
 <button id="bBoost" class="tbtn" type="button" aria-label="加速">加速</button>
-<div id="keys">滑鼠 瞄準　左鍵 射擊　右鍵／E 炸彈　W／S 前進／減速　A／D 平移　空白 上升　C 下降　Shift 加速　F 全螢幕　Esc 暫停</div>
+<button id="bThrust" class="tbtn" type="button" aria-label="推進">推進</button>
+<button id="bBrake" class="tbtn" type="button" aria-label="煞車">煞車</button>
+<div id="keys">滑鼠 瞄準　左鍵 射擊　右鍵 開鏡　E 炸彈　W 推進／S 煞車　A／D 左右平移　空白 上升　Ctrl 下降　Shift 加速　F 全螢幕　Esc 暫停</div>
 
 <div class="overlay" id="ovMenu">
   <div class="card">
-    <div class="eyebrow">Planet Breaker · 太陽系清場</div>
+    <div class="eyebrow">Planet Breaker · 清空太陽系</div>
     <h1>星球<span>粉碎者</span></h1>
-    <p class="lede">你是一架太空戰鬥機。任務只有一個：把太陽系的九顆行星，在它們繞日運行時一顆一顆追上去打碎。</p>
+    <p class="lede">你是一架太空戰鬥機，遊蕩太陽系把太陽系的行星都擊碎吧！</p>
     <ul class="rules">
-      <li><b>追擊戰：</b>九顆行星（水金地火木土天海冥）依真實軌道、傾角與自轉方向繞著太陽運行，一直在動。你要追上去、預判位置。</li>
-      <li><b>打碎行星：</b>行星沒有護盾，只有血量，越大的行星血量越多。血量歸零就會崩解。</li>
-      <li><b>敵艦滿宇宙：</b>戰鬥機、太空梭、戰艦散佈在各處，頭上有紅色血條。靠近他們會主動攻擊你，戰艦火力最猛，擊沉可回復船體。</li>
-      <li><b>連擊與強化：</b>連擊倍率最高 ×5；每擊碎一顆行星可三選一強化。九顆都碎後，太陽守衛現身。</li>
-      <li class="k"><b>操作：</b>滑鼠瞄準（點擊後鎖定游標），左鍵射擊，右鍵／E 炸彈。<b>W 前進、S 減速、A／D 平移、空白鍵上升、C 下降、Shift 加速</b>。方向鍵 ↑↓ 前進／減速、←→ 純平移（機身不傾斜），視角只由滑鼠控制。F 全螢幕。</li>
-      <li class="t"><b>操作：</b>左半邊拖曳瞄準（自動前進），右下「射擊」「炸彈」「加速」。</li>
+      <li><b>起始位置：玩家出生點位於地球附近。</b></li>
+      <li><b>引力飛行：</b>玩家本身也會受到星球引力。靠近行星會被拉住，離太陽太近會逐漸燒成灰燼。</li>
+      <li><b>打碎行星：</b>行星越大血量越多，血量歸零後該行星就會崩解，將所有行星都擊碎吧！</li>
+      <li><b>防禦戰艦：</b>戰鬥機、太空梭、戰艦散佈在各處，注意它們的攻擊。</li>
+      <li><b>連擊與強化：</b>連擊倍率最高 ×5；每擊碎一顆行星可三選一強化。太陽將會是最終 Boss，最後才能打。</li>
+      <li class="k"><b>操作：</b>左鍵射擊，右鍵／E 炸彈。<b>W 推進、S 煞車（相對最近行星）、A／D 平移、空白鍵上升、C 下降、Shift 強力推進</b>。方向鍵 ↑↓ 推進／煞車、←→ 純平移（機身不傾斜），視角只由滑鼠控制。F 全螢幕。</li>
+      <li class="t"><b>操作：</b>左半邊拖曳瞄準；右側「推進」前進、「煞車」減速、「加速」強力推進，另有「射擊」「炸彈」。</li>
     </ul>
     <div class="actions"><button id="bStart" class="primary" type="button">出擊</button><button id="bFullM" type="button">全螢幕 (F)</button></div>
     <p class="credit" id="fsNote"></p>
@@ -108,7 +111,7 @@
     <h2>選一項強化</h2>
     <div id="cards"></div>
     <div class="actions" style="justify-content:center;margin-top:18px"><button id="bPickOk" class="primary" type="button" disabled>請先選一項</button></div>
-    <p class="credit" style="max-width:none;text-align:center">點選卡片（或按 1／2／3），再按下方「確定」（或 Enter）。強化會保留到本局結束。</p>
+    <p class="credit" style="max-width:none;text-align:center">點選卡片（或按 1／2／3），再按下方「確定」（或 Enter）。</p>
   </div>
 </div>
 
@@ -123,7 +126,7 @@
   </div>
 </div>
 
-<div id="msg">載入天體貼圖…</div>
+<div id="msg">載入天體貼圖中…</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
 <script src="js/textures.js"></script>
