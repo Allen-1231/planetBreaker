@@ -539,6 +539,124 @@
     fireballs.forEach(function (f) { if (!f.s.visible) return; f.t += dt / f.dur; if (f.t >= 1) { f.s.visible = false; return; } var e = 1 - Math.pow(1 - f.t, 2); f.s.scale.setScalar(Math.max(0.01, f.size * (0.2 + 0.8 * e))); f.s.material.opacity = Math.min(1, (1 - f.t) * 1.6); });
   }
 
+  /* ---------- per-planet disintegration effects (space + tech look) ---------- */
+  var PFX_TH = {
+    mercury: { a: 0xffa347, b: 0xfff0d0, tilt: 0.0, lat: 'ico1' },
+    venus: { a: 0xe6d84a, b: 0xfff6b0, tilt: 3.1, lat: 'dodeca' },
+    earth: { a: 0x3ad0ff, b: 0x9dffd0, tilt: 0.41, lat: 'ico2' },
+    mars: { a: 0xff5a2a, b: 0xffc08a, tilt: 0.44, lat: 'octa' },
+    jupiter: { a: 0xffa860, b: 0xfff2d8, tilt: 0.05, lat: 'ico2' },
+    saturn: { a: 0xf0cf7a, b: 0xfff3c8, tilt: 0.47, lat: 'ico1' },
+    uranus: { a: 0x7fffe8, b: 0xe8ffff, tilt: 1.71, lat: 'octa' },
+    neptune: { a: 0x3f6bff, b: 0xb48cff, tilt: 0.5, lat: 'ico2' },
+    pluto: { a: 0xffd8e8, b: 0xffffff, tilt: 2.1, lat: 'octa' }
+  };
+  var pfxGeo = { ring: new THREE.RingGeometry(0.94, 1, 96), annulus: new THREE.RingGeometry(1.25, 2.3, 96), sph: new THREE.SphereGeometry(1, 24, 16), ico1: new THREE.IcosahedronGeometry(1, 1), ico2: new THREE.IcosahedronGeometry(1, 2), octa: new THREE.OctahedronGeometry(1, 0), dodeca: new THREE.DodecahedronGeometry(1, 0), tetra: new THREE.TetrahedronGeometry(1, 0) };
+  var pfxGlowTex = glowTex([[0, 'rgba(255,255,255,1)'], [0.3, 'rgba(255,255,255,0.45)'], [1, 'rgba(255,255,255,0)']]);
+  var pfxL = [], pfxZ = new V3(0, 0, 1), pfxQ = new THREE.Quaternion(), pfxN = new V3();
+  function pfxNormal(tilt, out) { return (out || new V3()).set(Math.sin(tilt), Math.cos(tilt), 0.12).normalize(); }
+  function pfxQuat(n) { return new THREE.Quaternion().setFromUnitVectors(pfxZ, n); }
+  function pfx(o) {
+    var m;
+    if (o.sprite) m = new THREE.Sprite(new THREE.SpriteMaterial({ map: pfxGlowTex, color: o.col, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    else if (o.lines) m = new THREE.LineSegments(o.geoObj, new THREE.LineBasicMaterial({ color: o.col, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    else m = new THREE.Mesh(pfxGeo[o.geo], new THREE.MeshBasicMaterial({ color: o.col, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, wireframe: !!o.wire }));
+    m.position.copy(o.pos); if (o.q) m.quaternion.copy(o.q); m.scale.setScalar(Math.max(0.001, o.s0)); m.visible = false; m.frustumCulled = false; m.renderOrder = 6; scene.add(m);
+    o.m = m; o.t = 0; pfxL.push(o); return o;
+  }
+  function pfxFree(o) { scene.remove(o.m); if (o.m.material) o.m.material.dispose(); if (o.geoObj) o.geoObj.dispose(); }
+  function clearPfx() { for (var i = pfxL.length - 1; i >= 0; i--) pfxFree(pfxL[i]); pfxL.length = 0; }
+  function updatePfx(dt) {
+    for (var i = pfxL.length - 1; i >= 0; i--) {
+      var o = pfxL[i]; o.t += dt; var tt = o.t - (o.delay || 0); if (tt < 0) continue; var u = tt / o.dur;
+      if (u >= 1) { pfxFree(o); pfxL.splice(i, 1); continue; }
+      var m = o.m; m.visible = true;
+      var e = o.ease === 'in' ? u * u : (o.ease === 'lin' ? u : 1 - Math.pow(1 - u, 2.2)), s = o.s0 + (o.s1 - o.s0) * e;
+      if (o.sy) m.scale.set(s, s * o.sy, s); else m.scale.setScalar(Math.max(0.001, s));
+      if (o.vel) m.position.addScaledVector(o.vel, dt);
+      if (o.rz) m.rotateZ(o.rz * dt); if (o.spin) { m.rotation.x += o.spin[0] * dt; m.rotation.y += o.spin[1] * dt; m.rotation.z += o.spin[2] * dt; }
+      var fi = o.fin ? Math.min(1, tt / o.fin) : 1, fl = o.flick ? (0.65 + 0.35 * Math.sin(o.t * o.flick)) : 1;
+      m.material.opacity = o.op * fi * fl * Math.pow(1 - u, o.k === undefined ? 1.3 : o.k);
+      if (o.upd) o.upd(o, u, dt);
+    }
+  }
+  function pfxSpikes(n, inner, jit) {
+    var arr = [];
+    for (var i = 0; i < n; i++) { var a = Math.random() * TAU, e = Math.random() * 2 - 1, kk = Math.sqrt(1 - e * e), dx = Math.cos(a) * kk, dz = Math.sin(a) * kk, l = inner + Math.random() * jit; arr.push(dx * inner, e * inner, dz * inner, dx * l, e * l, dz * l); }
+    var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(arr), 3)); return g;
+  }
+  function pfxBolts(n, segs, R) {
+    var arr = [];
+    for (var i = 0; i < n; i++) {
+      var a = Math.random() * TAU, e = Math.random() * 1.6 - 0.8, kk = Math.sqrt(1 - e * e), d = new V3(Math.cos(a) * kk, e, Math.sin(a) * kk), pr = new V3(0, 0, 0);
+      for (var s = 0; s < segs; s++) { var nx = d.clone().multiplyScalar((s + 1) / segs * R).add(new V3((Math.random() - 0.5) * 0.18 * R, (Math.random() - 0.5) * 0.18 * R, (Math.random() - 0.5) * 0.18 * R)); arr.push(pr.x, pr.y, pr.z, nx.x, nx.y, nx.z); pr = nx; }
+    }
+    var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(arr), 3)); return g;
+  }
+  function pfxRingAt(P, n, col, s0, s1, dur, delay, op, extra) {
+    var o = { geo: 'ring', col: col, op: op || 0.95, pos: P.clone(), q: pfxQuat(n), s0: s0, s1: s1, dur: dur, delay: delay || 0, k: 1.1 }; if (extra) for (var k in extra) o[k] = extra[k]; return pfx(o);
+  }
+  function pfxGlow(P, col, s0, s1, dur, delay, op) { return pfx({ sprite: true, col: col, op: op || 0.9, pos: P.clone(), s0: s0, s1: s1, dur: dur, delay: delay || 0, k: 1.6 }); }
+  function pfxRandQ() { return new THREE.Quaternion().setFromUnitVectors(pfxZ, new V3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize()); }
+  /* the 1.5 s collapse before the break: scanning lattice + contracting lock rings + a sweeping scan plane */
+  function pfxDying(B) {
+    var th = PFX_TH[B.id], R = B.R, n = pfxNormal(th.tilt), P = B.pos.clone(), follow = function (o) { o.m.position.copy(B.pos); };
+    pfx({ geo: th.lat, wire: true, col: th.a, op: 0.9, pos: P, s0: R * 1.04, s1: R * 1.12, dur: 1.5, k: 0.2, fin: 0.15, flick: 34, rz: 0.8, upd: follow });
+    for (var i = 0; i < 3; i++) pfxRingAt(P, n, i === 1 ? th.b : th.a, R * 2.6, R * 1.02, 0.55, i * 0.45, 0.9, { fin: 0.1, k: 0.3, ease: 'in', upd: follow });
+    pfx({ geo: 'ring', col: th.b, op: 0.9, pos: P, q: pfxQuat(n), s0: R, s1: R, dur: 1.4, k: 0.1, ease: 'lin', upd: function (o, u) { var h = (u * 2 - 1) * 0.95; o.m.position.copy(B.pos).addScaledVector(n, h * R); o.m.scale.setScalar(R * 1.03 * Math.sqrt(Math.max(0.02, 1 - h * h))); } });
+  }
+  function planetFx(B) {
+    var id = B.id, th = PFX_TH[id], R = B.R, P = B.pos.clone(), n = pfxNormal(th.tilt), up = n.clone(), i, c = new THREE.Color(th.a);
+    pfxGlow(P, th.b, R * 2.2, R * 5.5, 0.7, 0, 1);
+    shake = Math.max(shake, 1.2);
+    if (id === 'mercury') {
+      pfx({ lines: true, geoObj: pfxSpikes(70, R * 1.0, R * 1.6), col: th.b, op: 1, pos: P, s0: 1, s1: 3.6, dur: 0.8, k: 1.0 });
+      pfx({ lines: true, geoObj: pfxSpikes(50, R * 1.0, R * 2.6), col: th.a, op: 0.9, pos: P, s0: 1, s1: 4.8, dur: 1.1, k: 1.2 });
+      for (i = 0; i < 4; i++) pfx({ geo: 'ring', col: i % 2 ? th.b : th.a, op: 0.95, pos: P, q: pfxRandQ(), s0: R, s1: R * (7 + i * 1.6), dur: 0.55 + i * 0.18, k: 1.0 });
+      pfx({ geo: 'ico1', wire: true, col: th.a, op: 0.9, pos: P, s0: R, s1: R * 3.4, dur: 0.9, rz: 3, spin: [1.5, 2, 0] });
+    } else if (id === 'venus') {
+      pfx({ geo: 'dodeca', wire: true, col: th.a, op: 0.95, pos: P, s0: R * 1.2, s1: R * 0.55, dur: 0.4, k: 0.2, ease: 'in', spin: [0, 3, 0] });
+      for (i = 0; i < 3; i++) pfx({ geo: 'sph', col: i === 0 ? 0xffe97a : (i === 1 ? 0xc9d83a : 0xff9a3a), op: 0.22, pos: P, s0: R * 0.5, s1: R * (3.2 + i * 1.1), dur: 2.4 + i * 0.5, delay: 0.38 + i * 0.12, k: 1.1, ease: 'out' });
+      pfxRingAt(P, n, th.a, R * 1.0, R * 5.5, 2.2, 0.4, 0.8); pfxRingAt(P, n, th.b, R * 1.0, R * 8, 2.8, 0.55, 0.5);
+      pfx({ geo: 'dodeca', wire: true, col: th.b, op: 0.7, pos: P, s0: R * 0.6, s1: R * 3.4, dur: 2.4, delay: 0.38, rz: 1.5, spin: [0.6, 0.9, 0] });
+    } else if (id === 'earth') {
+      for (i = 0; i < 6; i++) { var h = (i / 5 * 2 - 1) * 0.82; pfx({ geo: 'ring', col: i % 2 ? th.a : th.b, op: 0.95, pos: P.clone().addScaledVector(n, h * R), q: pfxQuat(n), s0: R * Math.sqrt(1 - h * h), s1: R * Math.sqrt(1 - h * h) * 3.6, dur: 1.5 + i * 0.1, delay: i * 0.07, vel: n.clone().multiplyScalar(h * R * 0.9), k: 1.0 }); }
+      pfx({ geo: 'ico2', wire: true, col: th.a, op: 0.9, pos: P, s0: R, s1: R * 2.6, dur: 1.4, rz: 0.5, k: 0.9 });
+      pfxRingAt(P, n, 0xffffff, R, R * 9, 1.0, 0.1); pfxRingAt(P, n, th.a, R, R * 12, 1.6, 0.25, 0.7);
+      pfx({ geo: 'sph', col: 0x3aa0ff, op: 0.18, pos: P, s0: R, s1: R * 3.5, dur: 1.8 });
+    } else if (id === 'mars') {
+      for (i = 0; i < 3; i++) pfx({ geo: 'sph', col: i === 0 ? 0xff5a2a : (i === 1 ? 0xc0391a : 0xffa070), op: 0.25, pos: P, s0: R * 0.8, s1: R * (4 + i * 1.2), dur: 2.0 + i * 0.4, delay: i * 0.08, k: 1.0 });
+      pfx({ lines: true, geoObj: pfxSpikes(90, R * 1.0, R * 2.2), col: th.b, op: 0.9, pos: P, s0: 1, s1: 3.8, dur: 1.2, k: 1.1 });
+      pfx({ geo: 'ring', col: th.a, op: 0.9, pos: P, q: pfxQuat(new V3(0, 1, 0)), s0: R, s1: R * 9, dur: 1.8, k: 1.0 }); pfxRingAt(P, n, th.b, R, R * 6, 1.2, 0.15);
+      pfx({ geo: 'octa', wire: true, col: th.a, op: 0.95, pos: P, s0: R * 1.1, s1: R * 3.0, dur: 1.1, rz: 2, spin: [1, 1.4, 0] });
+    } else if (id === 'jupiter') {
+      for (i = 0; i < 7; i++) { var hh = (i / 6 * 2 - 1) * 0.75; pfx({ geo: 'ring', col: i % 2 ? 0xfff2d8 : 0xff9a50, op: 0.95, pos: P.clone().addScaledVector(n, hh * R), q: pfxQuat(n), s0: R * Math.sqrt(1 - hh * hh), s1: R * (3.5 + (i % 3) * 1.8) * Math.sqrt(1 - hh * hh) + R * 1.5, dur: 1.3 + (i % 3) * 0.35, vel: n.clone().multiplyScalar(hh * R * 0.5), rz: (i % 2 ? 1 : -1) * 2, k: 1.0 }); }
+      for (i = 0; i < 3; i++) pfx({ lines: true, geoObj: pfxBolts(14, 7, R * (2.4 + i * 0.7)), col: i === 0 ? 0xffffff : 0xb8d8ff, op: 1, pos: P, s0: 1, s1: 1.15, dur: 0.35 + i * 0.12, delay: i * 0.16, k: 0.8, flick: 90 });
+      pfx({ geo: 'ico2', wire: true, col: th.a, op: 0.8, pos: P, s0: R, s1: R * 2.4, dur: 1.2 });
+    } else if (id === 'saturn') {
+      pfx({ geo: 'annulus', col: th.a, op: 0.75, pos: P, q: pfxQuat(n), s0: R, s1: R * 2.8, dur: 2.0, rz: 1.4, k: 1.0 });
+      pfx({ geo: 'annulus', col: th.b, op: 0.5, pos: P, q: pfxQuat(n), s0: R * 0.8, s1: R * 3.6, dur: 2.4, rz: -0.9, delay: 0.1, k: 1.0 });
+      for (i = 0; i < 3; i++) pfxRingAt(P, n, i === 1 ? th.b : th.a, R * 1.2, R * (6 + i * 2.2), 1.2 + i * 0.3, i * 0.12, 0.9, { rz: 2 });
+      pfx({ geo: 'ico1', wire: true, col: th.a, op: 0.8, pos: P, s0: R, s1: R * 2.4, dur: 1.2, rz: 1 });
+      pfx({ upd: function (o, u, dt) { for (var q = 0; q < 6; q++) { var a = Math.random() * TAU, rr = R * (1.3 + u * 2.2 + Math.random() * 0.8), s = 40 + u * 90; var d = new V3(Math.cos(a), 0, Math.sin(a)).applyQuaternion(pfxQuat(n)); emit(P.x + d.x * rr, P.y + d.y * rr, P.z + d.z * rr, d.x * s, d.y * s, d.z * s, 1.1, Math.max(2, R * 0.03), c.r, c.g, c.b); } }, sprite: true, col: 0, op: 0, pos: P, s0: 1, s1: 1, dur: 1.4 });
+    } else if (id === 'uranus') {
+      for (i = 0; i < 3; i++) pfxRingAt(P, n, i === 0 ? th.b : th.a, R * 1.1, R * (5.5 + i * 2), 1.1 + i * 0.3, i * 0.1, 0.95, { rz: 1 + i });
+      for (i = 0; i < 14; i++) { var sd = new V3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(), sz = R * (0.12 + Math.random() * 0.2); pfx({ geo: i % 3 ? 'octa' : 'tetra', wire: i % 2 === 0, col: i % 2 ? 0xffffff : th.a, op: 0.95, pos: P.clone().addScaledVector(sd, R * 0.4), s0: sz, s1: sz * 0.7, dur: 1.8 + Math.random() * 0.8, vel: sd.clone().multiplyScalar(R * (1.4 + Math.random() * 1.6)), spin: [Math.random() * 4, Math.random() * 4, Math.random() * 4], k: 0.6, ease: 'lin' }); }
+      pfx({ geo: 'octa', wire: true, col: th.a, op: 0.9, pos: P, s0: R * 1.05, s1: R * 3.2, dur: 1.3, spin: [0.5, 1.2, 0.3] });
+      pfx({ lines: true, geoObj: pfxSpikes(36, R * 1.0, R * 2.0), col: th.b, op: 0.9, pos: P, s0: 1, s1: 3.4, dur: 1.0 });
+    } else if (id === 'neptune') {
+      pfx({ geo: 'ico2', wire: true, col: th.a, op: 0.9, pos: P, s0: R * 1.2, s1: R * 0.7, dur: 0.35, ease: 'in', k: 0.2 });
+      for (i = 0; i < 4; i++) pfxRingAt(P, n, i % 2 ? th.b : th.a, R * 0.9, R * (7 + i * 1.5), 0.7 + i * 0.2, 0.3 + i * 0.07, 0.95, { rz: 3 });
+      pfx({ geo: 'sph', col: 0x2a46d8, op: 0.25, pos: P, s0: R * 0.6, s1: R * 4.2, dur: 1.8, delay: 0.3 });
+      pfx({ geo: 'ico2', wire: true, col: th.b, op: 0.8, pos: P, s0: R * 0.7, s1: R * 3.4, dur: 1.5, delay: 0.3, rz: 2 });
+      var bq = pfxQuat(n); pfx({ upd: function (o, u, dt) { var base = o.t * 7; for (var arm = 0; arm < 4; arm++) for (var j = 0; j < 3; j++) { var a = base + arm * Math.PI / 2 + j * 0.5, rr = R * (0.8 + u * 3.2 + j * 0.25), d = new V3(Math.cos(a), (Math.random() - 0.5) * 0.2, Math.sin(a)).applyQuaternion(bq), tc = arm % 2 ? th.b : th.a, cc = new THREE.Color(tc); emit(P.x + d.x * rr, P.y + d.y * rr, P.z + d.z * rr, -d.z * 90, d.y * 20, d.x * 90, 0.9, Math.max(2, R * 0.03), cc.r, cc.g, cc.b); } }, sprite: true, col: 0, op: 0, pos: P, s0: 1, s1: 1, dur: 1.7, delay: 0.3 });
+    } else {
+      pfx({ geo: 'octa', wire: true, col: th.a, op: 0.95, pos: P, s0: R * 1.15, s1: R * 0.6, dur: 0.5, ease: 'in', k: 0.2, spin: [0, 2, 0] });
+      pfxRingAt(P, n, th.b, R, R * 7, 2.2, 0.5, 0.7); pfxRingAt(P, n, th.a, R, R * 11, 3.0, 0.7, 0.45);
+      for (i = 0; i < 16; i++) { var sd2 = new V3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(), sz2 = R * (0.1 + Math.random() * 0.22); pfx({ geo: i % 2 ? 'tetra' : 'octa', wire: i % 3 === 0, col: i % 2 ? 0xffffff : th.a, op: 0.95, pos: P.clone().addScaledVector(sd2, R * 0.3), s0: sz2, s1: sz2 * 0.8, dur: 3.0 + Math.random() * 1.5, delay: 0.5, vel: sd2.clone().multiplyScalar(R * (0.5 + Math.random() * 1.0)), spin: [Math.random() * 2, Math.random() * 2, Math.random() * 2], k: 0.7, ease: 'lin' }); }
+      pfx({ geo: 'sph', col: 0xffffff, op: 0.3, pos: P, s0: R * 0.5, s1: R * 2.4, dur: 1.2, delay: 0.5 });
+    }
+  }
   /* debris */
   var ND = 1600, dPos = new Float32Array(ND * 3), dVel = new Float32Array(ND * 3), dSc = new Float32Array(ND), dLife = new Float32Array(ND), dMax = new Float32Array(ND), dRot = new Float32Array(ND * 3), dAng = new Float32Array(ND * 3), dNext = 0, dActive = 0;
   var debMesh = new THREE.InstancedMesh(rockGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0.05, emissive: 0x331100, emissiveIntensity: 0.0 }), ND);
@@ -670,7 +788,7 @@
         }
       }
       if (d.type === 'carrier') {
-        d.spT -= dt; if (d.spT <= 0 && dist < 3200) { d.spT = 9; var made = 0; for (var di = 0; di < drones.length && made < 3; di++) { var f = drones[di]; if (f.alive || !f.reserve || f.guard || f.type !== 'fighter') continue; f.alive = true; f.awake = true; f.hp = ETYPE.fighter.hp; f.max = f.hp; f.fireT = 1.2; f.vel.set(0, 0, 0); f.pos.copy(d.pos).add(tmpA.set((Math.random() - 0.5) * d.r, -6, (Math.random() - 0.5) * d.r)); f.g.position.copy(f.pos); f.g.visible = true; f.g.scale.setScalar(f.sc); made++; ring(f.pos, 50, 0xffaa55, 0.5); } }
+        d.spT -= dt; var awF = 0; if (d.spT <= 0) drones.forEach(function (q) { if (q.alive && q.awake && q.type === 'fighter') awF++; }); if (d.spT <= 0 && dist < 3200 && awF < FIGHT_CAP) { d.spT = 9; var made = 0; for (var di = 0; di < drones.length && made < 3; di++) { var f = drones[di]; if (f.alive || !f.reserve || f.guard || f.type !== 'fighter') continue; f.alive = true; f.awake = true; f.hp = ETYPE.fighter.hp; f.max = f.hp; f.fireT = 1.2; f.vel.set(0, 0, 0); f.pos.copy(d.pos).add(tmpA.set((Math.random() - 0.5) * d.r, -6, (Math.random() - 0.5) * d.r)); f.g.position.copy(f.pos); f.g.visible = true; f.g.scale.setScalar(f.sc); made++; ring(f.pos, 50, 0xffaa55, 0.5); } }
       }
       if (dist < d.r + 3 && !G.result && d.ramT <= 0) { d.ramT = 1.2; damage(d.type === 'dread' ? 25 : (d.type === 'frigate' ? 10 : 16), 'drone'); burst(G.pos, 12, 24, 1.0, 1, 0.5, 0.3, 0.6); }
     }
@@ -714,13 +832,13 @@
     for (var s = 0; s < 12; s++) spec.push({ type: 'shuttle', home: null });
     spec.push({ type: 'warship', home: 'mars' }); spec.push({ type: 'frigate', home: null }); spec.push({ type: 'frigate', home: null });
     [['frigate', 3], ['warship', 4], ['cruiser', 3], ['carrier', 2], ['dread', 3]].forEach(function (p) { for (var q = 0; q < p[1]; q++) spec.push({ type: p[0], home: null, reserve: true, sched: true }); });
-    for (var r = 0; r < 20; r++) spec.push({ type: 'fighter', home: null, reserve: true });
+    for (var r = 0; r < 58; r++) spec.push({ type: 'fighter', home: null, reserve: true });
     for (var r2 = 0; r2 < 4; r2++) spec.push({ type: 'shuttle', home: null, reserve: true });
     for (var r3 = 0; r3 < 3; r3++) spec.push({ type: 'frigate', home: null, reserve: true });
     ['g_bulwark', 'g_lancer', 'g_hive', 'g_reaper'].forEach(function (t) { spec.push({ type: t, home: null, reserve: true, guard: true }); });
     return spec;
   })();
-  var drones = [], reinT = 14, schedT = 25;
+  var drones = [], reinT = 14, schedT = 25, fightT = 6, FIGHT_CAP = 30;
   ENEMY_POOL.forEach(function (sp) {
     var T = ETYPE[sp.type];
     drones.push({ g: buildEnemy(sp.type === 'dread' ? 'warship' : sp.type), sc: T.sc, type: sp.type, name: T.name, r: T.r, max: T.hp, sp: sp, pos: new V3(), vel: new V3(), hp: 0, alive: false, awake: false, home: sp.home, anchor: new V3(), pr: 300, ang: 0, fireT: 0, burst: 0, burstT: 0, side: 1, ph: Math.random() * 6, flash: 0, ramT: 0, charge: 0, reserve: !!sp.reserve, guard: !!sp.guard, ship: SHIPS.indexOf(sp.type) >= 0, sched: !!sp.sched, cnt: 0, st: 0, stT: 3, dashDir: new V3(), ls: 0, lT: 0, aim: new V3(), bdir: new V3(), bhit: false, spT: 6 });
@@ -737,7 +855,7 @@
     d.g.position.copy(d.pos); d.g.visible = true; d.vel.set(0, 0, 0);
   }
   function resetDrones() {
-    reinT = 14; schedT = 25;
+    reinT = 14; schedT = 25; fightT = 6;
     drones.forEach(function (d) {
       var sp = d.sp, T = ETYPE[d.type]; d.alive = !d.reserve; d.awake = false; d.hp = T.hp; d.max = T.hp; d.fireT = 1 + Math.random() * 2.5; d.burst = 0; d.burstT = 0; d.flash = 0; d.ramT = 0; d.charge = 0; d.side = Math.random() < 0.5 ? -1 : 1; d.vel.set(0, 0, 0); d.ang = Math.random() * TAU; d.ph = Math.random() * 6;
       if (d.reserve) { d.g.visible = false; return; }
@@ -768,6 +886,19 @@
     if (t >= pts[pts.length - 1][0]) return pts[pts.length - 1][1];
     for (var i = 1; i < pts.length; i++) if (t < pts[i][0]) { var a = pts[i - 1], b = pts[i]; return Math.round(a[1] + (b[1] - a[1]) * (t - a[0]) / (b[0] - a[0])); }
     return 2;
+  }
+  function fighterTarget(t) { return Math.round(4 + (FIGHT_CAP - 4) * (1 - Math.exp(-t / 360))); }
+  function spawnFighters() {
+    var awakeF = 0; drones.forEach(function (d) { if (d.alive && d.awake && d.type === 'fighter') awakeF++; });
+    var need = Math.min(2, fighterTarget(G.t) - awakeF), made = 0;
+    for (var i = 0; i < drones.length && made < need; i++) {
+      var d = drones[i]; if (!d.reserve || d.alive || d.type !== 'fighter' || d.guard || d.sched) continue;
+      var a = Math.random() * TAU, rr = 2000 + Math.random() * 700, T = ETYPE.fighter;
+      d.alive = true; d.awake = true; d.hp = T.hp; d.max = T.hp; d.fireT = 1.6 + Math.random(); d.flash = 0; d.burst = 0; d.charge = 0; d.vel.set(0, 0, 0);
+      d.pos.set(G.pos.x + Math.cos(a) * rr, G.pos.y + (Math.random() - 0.5) * 500, G.pos.z + Math.sin(a) * rr);
+      d.g.position.copy(d.pos); d.g.visible = true; d.g.scale.setScalar(d.sc); ring(d.pos, 50, 0xff7744, 0.5); made++;
+    }
+    return made;
   }
   function spawnCapital() {
     var t = G.t, alive = 0, dreads = 0, cand = [];
@@ -804,6 +935,7 @@
   }
   function updateDrones(dt) {
     if (G && !G.result && !boss.alive) { reinT -= dt; if (reinT <= 0) { reinT = 13 + Math.random() * 5; var awakeN = 0; drones.forEach(function (d) { if (d.alive && d.awake) awakeN++; }); if (awakeN < 10 && spawnReinforce(awakeN < 4 ? 3 : 2)) events.push({ type: 'reinforce' }); } }
+    if (G && !G.result && !boss.alive) { fightT -= dt; if (fightT <= 0) { fightT = 3.5; spawnFighters(); } }
     if (G && !G.result && !boss.alive) { schedT -= dt; if (schedT <= 0) { schedT = 8; if (spawnCapital()) events.push({ type: 'reinforce' }); } }
     drones.forEach(function (d) {
       if (!d.alive) return; var T = ETYPE[d.type], toP = tmpA.copy(G.pos).sub(d.pos), dist = toP.length(); d.flash = Math.max(0, d.flash - dt * 5);
@@ -979,7 +1111,7 @@
     if (!c.alive) return; c.alive = false; c.g.visible = false; var B = c.B;
     burst(c.pos, 26, 70, 2.6, 1, 0.6, 0.25, 0.9); fireball(c.pos, c.cs * 7, 0.7); ring(c.pos, c.cs * 10, 0xffa060, 0.6);
     G.coresKilled++; award('killScore', 200); bump(2); if (B.state === 'alive') { B.hp = Math.max(0, B.hp - B.maxHp * 0.05); B.u.flash.value = 1; } shake = Math.max(shake, Math.max(0, 1.2 - G.pos.distanceTo(c.pos) / 500));
-    if (B.state === 'alive' && B.hp <= 0) { B.state = 'dying'; B.dyingT = 1.5; events.push({ type: 'dying', id: B.id }); }
+    if (B.state === 'alive' && B.hp <= 0) { B.state = 'dying'; B.dyingT = 1.5; events.push({ type: 'dying', id: B.id }); pfxDying(B); }
     else events.push({ type: 'core', left: coreLeft(B), id: B.id });
   }
   function coreAim(c, speed, spreadOff, kind, w, len, col) {
@@ -1272,7 +1404,7 @@
   }
   function hitPlanetUnused(B, dmg, p) {
     if (B.state !== 'alive') return; if (G) { G.hitPl = B; G.hitPlT = G.t; } B.hp -= dmg; B.u.flash.value = Math.min(1, B.u.flash.value + 0.5); G.dmgDealt += dmg;
-    if (B.hp <= 0) { B.hp = 0; B.state = 'dying'; B.dyingT = 1.5; events.push({ type: 'dying', id: B.id }); }
+    if (B.hp <= 0) { B.hp = 0; B.state = 'dying'; B.dyingT = 1.5; events.push({ type: 'dying', id: B.id }); pfxDying(B); }
   }
   function boom(p, radius, dmg) {
     fireball(p, radius * 1.3, 0.7); ring(p, radius * 2.2, 0xffc680, 0.7); burst(p, 40, radius * 0.8, 2.0, 1, 0.7, 0.3, 0.9); G.bombsUsed++;
@@ -1287,9 +1419,9 @@
   function destroyPlanet(B) {
     B.state = 'dead'; G.destroyed++; award('planetScore', PD[B.id].score); bump(4); G.hull = Math.min(HULL_MAX, G.hull + 25); G.bombs++;
     var col = new THREE.Color(PL[B.id].col);
-    ring(B.pos, B.R * 11, 0xffffff, 1.5); ring(B.pos, B.R * 6, col.getHex(), 1.0); fireball(B.pos, B.R * 6, 1.6);
+    planetFx(B);
     spawnDebris(B, Math.round(Math.min(520, Math.max(160, B.R * 1.5))));
-    burst(B.pos, 60, B.R * 1.2, Math.max(3, B.R * 0.04), 1, 0.8, 0.5, 1.4);
+    var tcc = new THREE.Color(PFX_TH[B.id].a); burst(B.pos, 60, B.R * 1.2, Math.max(3, B.R * 0.04), tcc.r, tcc.g, tcc.b, 1.4);
     var dist = G.pos.distanceTo(B.pos); shake = Math.max(shake, Math.max(0.6, 3.2 - dist / (B.R * 2.2))); flashVig = Math.max(flashVig, Math.max(0.4, 1.1 - dist / (B.R * 8))); slowT = 1.1;
     events.push({ type: 'pdie', id: B.id });
     if (G.destroyed >= ORDER.length) { G.bossT = 3.4; events.push({ type: 'bossWarn' }); } else G.pickT = 2.4;
@@ -1451,7 +1583,7 @@
     belt.alive.fill(1); rings.alive.fill(1); restoreField(belt); restoreField(rings);
     orbs.forEach(function (o) { o.got = false; o.mesh.visible = true; });
     ORDER.forEach(function (id) { var B = bodies[id]; B.hp = B.maxHp; B.state = 'alive'; B.u.dmg.value = 0; B.u.flash.value = 0; B.group.visible = true; B.group.scale.setScalar(1); if (B.ring) B.ring.visible = true; });
-    bAlive.fill(0); bombObj.alive = false; bombObj.mesh.visible = false; dLife.fill(0); dActive = 0; for (var i = 0; i < ND; i++) debMesh.setMatrixAt(i, ZERO); debMesh.instanceMatrix.needsUpdate = true;
+    clearPfx(); bAlive.fill(0); bombObj.alive = false; bombObj.mesh.visible = false; dLife.fill(0); dActive = 0; for (var i = 0; i < ND; i++) debMesh.setMatrixAt(i, ZERO); debMesh.instanceMatrix.needsUpdate = true;
     resetCores(); resetDrones(); G.vel = new V3(); orbitVel('earth', G.vel); G.relV = new V3(); G.relSpeed = 0; G.gmag = 0; G.speed = G.vel.length(); shipG.visible = true; kick = 0;
     boss.alive = false; boss.stage = 0; boss.dying = 0; boss.g.visible = false; sunGlow.scale.setScalar(sunGlow0); boss.core.material.emissiveIntensity = 1.3; for (var bq = 0; bq < NBEAM; bq++) clearBeam(bq); zaps.forEach(function (z) { z.on = false; });
   }
@@ -1829,7 +1961,7 @@
         whooshGain.gain.setTargetAtTime(G.boosting ? 0.2 : 0.02 + 0.05 * G.prox, AC.currentTime, 0.1); whooshF.frequency.setTargetAtTime(500 + G.speed * 2.5, AC.currentTime, 0.1);
       }
     } else if (mode === 'pause') { /* frozen */ } else if (AC && engGain) { engGain.gain.setTargetAtTime(0.0001, AC.currentTime, 0.1); whooshGain.gain.setTargetAtTime(0.0001, AC.currentTime, 0.1); }
-    if (mode !== 'pause') { updateParticles(rdt); updateFx(rdt); if (mode === 'over' || mode === 'ready' || mode === 'pick') updateDebris(rdt); }
+    if (mode !== 'pause') { updateParticles(rdt); updateFx(rdt); updatePfx(rdt); if (mode === 'over' || mode === 'ready' || mode === 'pick') updateDebris(rdt); }
     if (mode === 'menu' || mode === 'over' || mode === 'ready') { updateOrbits(rdt); updateCores(rdt); }
     updateCamera(rdt); syncScene(rdt);
     renderer.render(scene, camera);
