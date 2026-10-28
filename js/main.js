@@ -495,7 +495,7 @@
     for (var i = s; i < e; i++) if (!bAlive[i]) {
       bAlive[i] = 1; bPos[i * 3] = p.x; bPos[i * 3 + 1] = p.y; bPos[i * 3 + 2] = p.z; bOrg[i * 3] = p.x; bOrg[i * 3 + 1] = p.y; bOrg[i * 3 + 2] = p.z;
       bVel[i * 3] = v.x; bVel[i * 3 + 1] = v.y; bVel[i * 3 + 2] = v.z; bLife[i] = life; bKind[i] = o.kind || 0; bPierce[i] = o.pierce || 0; bHome[i] = o.home || 0;
-      bLen[i] = o.len || (isPlayer ? 11 : 36); bW[i] = o.w || (isPlayer ? 10 : 1.5);
+      bLen[i] = o.len || (isPlayer ? 18 : 36); bW[i] = o.w || (isPlayer ? 22 : 1.5);
       var c = o.col || (isPlayer ? [0.3, 0.85, 1.0] : [1.0, 0.32, 0.16]);
       bCol[i * 3] = c[0]; bCol[i * 3 + 1] = c[1]; bCol[i * 3 + 2] = c[2]; bulCol[i * 3] = c[0]; bulCol[i * 3 + 1] = c[1]; bulCol[i * 3 + 2] = c[2];
       return i;
@@ -506,10 +506,10 @@
     for (var i = 0; i < NBUL; i++) {
       if (!bAlive[i]) { bulSize[i] = 0; bulPos[i * 3 + 1] = -1e7; hideRib(i); continue; }
       var x = bPos[i * 3], y = bPos[i * 3 + 1], z = bPos[i * 3 + 2];
-      bulPos[i * 3] = x; bulPos[i * 3 + 1] = y; bulPos[i * 3 + 2] = z; bulSize[i] = i < NB ? 7 : (bKind[i] === 2 ? 26 : (bKind[i] === 1 ? 11 : 14));
+      bulPos[i * 3] = x; bulPos[i * 3 + 1] = y; bulPos[i * 3 + 2] = z; bulSize[i] = i < NB ? 15 : (bKind[i] === 2 ? 26 : (bKind[i] === 1 ? 11 : 14));
       var vx = bVel[i * 3], vy = bVel[i * 3 + 1], vz = bVel[i * 3 + 2], sp = Math.sqrt(vx * vx + vy * vy + vz * vz) || 1;
       var ox = x - bOrg[i * 3], oy = y - bOrg[i * 3 + 1], oz = z - bOrg[i * 3 + 2], od = Math.sqrt(ox * ox + oy * oy + oz * oz), L = Math.min(bLen[i], od);
-      writeRib(i, x, y, z, x - vx / sp * L, y - vy / sp * L, z - vz / sp * L, 0, bW[i], bCol[i * 3], bCol[i * 3 + 1], bCol[i * 3 + 2], i < NB ? 3.8 : 1);
+      writeRib(i, x, y, z, x - vx / sp * L, y - vy / sp * L, z - vz / sp * L, 0, bW[i], bCol[i * 3], bCol[i * 3 + 1], bCol[i * 3 + 2], i < NB ? 5.5 : 1);
     }
     for (var q = 0; q < NBEAM; q++) {
       var m = beams[q]; if (!m.on) { hideRib(NBUL + q); continue; }
