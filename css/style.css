@@ -140,7 +140,9 @@
   .overlay[hidden] { display: none; }
   #ovMenu { align-items: center; justify-content: center; padding-block: 24px; background: radial-gradient(ellipse at center, rgba(3, 5, 10, 0.86) 0, rgba(3, 5, 10, 0.68) 65%, rgba(3, 5, 10, 0.5) 100%); }
   #ovMenu .card { margin: auto; align-items: center; text-align: center; }
-  #ovMenu .rules { text-align: left; }
+  #ovMenu .rules { text-align: left; gap: 16px; line-height: 1.75; }
+  #ovMenu .card { gap: 20px; }
+  #ovMenu .rules li::before { top: 0.78em; }
   #ovMenu .actions { justify-content: center; }
   #scope { position: fixed; inset: 0; z-index: 2; pointer-events: none; display: none; place-items: center; background: radial-gradient(circle at center, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) min(46vh, 46vw), rgba(0, 0, 0, 0.94) calc(min(46vh, 46vw) + 2px)); }
   #scope svg { width: min(92vh, 92vw); height: min(92vh, 92vw); filter: drop-shadow(0 0 4px rgba(127, 227, 255, 0.5)); }
