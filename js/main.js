@@ -1617,6 +1617,7 @@
       if (t + st !== r.ct) { r.ct = t + st; r.val.textContent = t; r.row.className = 'hr' + (st ? ' ' + st : ''); }
     }
   }
+  (function () { var pl = document.querySelector('#ovPause .lede'); if (pl && !document.getElementById('pauseTip')) { var tip = document.createElement('p'); tip.id = 'pauseTip'; tip.className = 'lede'; tip.innerHTML = '\uD83D\uDCA1建議攻打順序：' + ['水星', '火星', '地球', '金星', '冥王星', '海王星', '天王星', '土星', '木星'].map(function (n, k) { return '<span style=\"white-space:nowrap\">' + n + (k < 8 ? ' -\u2060>' : '') + '</span>'; }).join(' '); pl.insertAdjacentElement('afterend', tip); } })();
   var keys = {}, mouseNDC = { x: 0, y: 0 }, mouseSeen = false, mouseL = false, mouseR = false, touchMode = false, touchStick = null, btnBoost = false, btnFire = false, btnThrust = false, btnBrake = false, bombReq = false;
   function setTouch(on) { if (touchMode === on) return; touchMode = on; document.body.classList.toggle('touch', on); }
   if (window.matchMedia && matchMedia('(pointer: coarse)').matches) setTouch(true);
