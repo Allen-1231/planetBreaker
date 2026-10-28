@@ -582,14 +582,14 @@
     fighter: { name: '戰鬥機', hp: 30, r: 12, wake: 1400, score: 60, bump: 1, sc: 1.5 },
     shuttle: { name: '太空梭', hp: 90, r: 21, wake: 1150, score: 160, bump: 2, sc: 1.6 },
     frigate: { name: '護衛艦', hp: 600, r: 32, wake: 6500, score: 500, bump: 4, sc: 2.2 },
-    warship: { name: '戰艦', hp: 1100, r: 62, wake: 6500, score: 1000, bump: 5, sc: 2.2 },
-    cruiser: { name: '巡洋艦', hp: 1800, r: 72, wake: 6000, score: 1600, bump: 6, sc: 1.8 },
-    carrier: { name: '航空母艦', hp: 2600, r: 95, wake: 5500, score: 2200, bump: 7, sc: 2.0 },
+    warship: { name: '戰艦', hp: 1100, r: 190, wake: 6500, score: 1000, bump: 5, sc: 6.6 },
+    cruiser: { name: '巡洋艦', hp: 1800, r: 250, wake: 6000, score: 1600, bump: 6, sc: 6.3 },
+    carrier: { name: '航空母艦', hp: 2600, r: 380, wake: 5500, score: 2200, bump: 7, sc: 8 },
     g_bulwark: { name: '盾衛', hp: 7800, r: 70, wake: 3800, score: 2500, bump: 8, sc: 1 },
     g_lancer: { name: '光矛', hp: 5100, r: 48, wake: 3800, score: 2500, bump: 8, sc: 1 },
     g_hive: { name: '蜂后', hp: 6000, r: 60, wake: 3800, score: 2500, bump: 8, sc: 1 },
     g_reaper: { name: '旋刃', hp: 4500, r: 42, wake: 3800, score: 2500, bump: 8, sc: 1 },
-    dread: { name: '巨型戰艦', hp: 4000, r: 110, wake: 5000, score: 3500, bump: 8, sc: 4.2 }
+    dread: { name: '巨型戰艦', hp: 4000, r: 550, wake: 5000, score: 3500, bump: 8, sc: 21 }
   };
   var eMatRed = new THREE.MeshStandardMaterial({ color: 0x8a1f1a, emissive: 0x7a0a0a, emissiveIntensity: 0.9, roughness: 0.5, metalness: 0.3 });
   var eMatDark = new THREE.MeshStandardMaterial({ color: 0x2b2f3a, roughness: 0.6, metalness: 0.4 });
@@ -602,10 +602,10 @@
   var SHIPS = ['frigate', 'warship', 'cruiser', 'carrier', 'dread'];
   var SHIPAI = {
     frigate: { spd: 250, near: 450, far: 850, side: 100, k: 1.3 },
-    warship: { spd: 190, near: 800, far: 1300, side: 60, k: 0.9 },
-    cruiser: { spd: 150, near: 1000, far: 1600, side: 70, k: 0.8 },
-    carrier: { spd: 120, near: 1500, far: 2200, side: 30, k: 0.6 },
-    dread: { spd: 105, near: 1600, far: 2400, side: 35, k: 0.5 }
+    warship: { spd: 190, near: 1000, far: 1500, side: 60, k: 0.9 },
+    cruiser: { spd: 150, near: 1250, far: 1800, side: 70, k: 0.8 },
+    carrier: { spd: 120, near: 1800, far: 2400, side: 30, k: 0.6 },
+    dread: { spd: 105, near: 2000, far: 2700, side: 35, k: 0.5 }
   };
   function sMat(c, e, ei) { return new THREE.MeshStandardMaterial({ color: c, emissive: e || 0x000000, emissiveIntensity: ei || 0, roughness: 0.5, metalness: 0.6 }); }
   function buildShipModel(type) {
@@ -654,7 +654,7 @@
       sTan.set(-dir.z, 0, dir.x).multiplyScalar(d.side * A.side); want.add(sTan); want.addScaledVector(G.vel, 0.25);
       d.vel.lerp(want, 1 - Math.exp(-dt * A.k)); d.pos.addScaledVector(d.vel, dt);
       if (d.charge > 0) { d.charge -= dt; if (d.charge <= 0) { for (var cq = -1; cq <= 1; cq++) eShot(d, 340, cq * 0.05, 2, 9, 72, [1, 0.45, 0.15], 6.5); ring(d.pos, d.r * 1.6, 0xffa060, 0.6); shake = Math.max(shake, 0.25); } }
-      if (d.burst > 0) { d.burstT -= dt; if (d.burstT <= 0) { d.burstT = 0.16; d.burst--; eShot(d, 540, 0, 0, 2.2, 56, [1, 0.3, 0.15], 3.4); } }
+      if (d.burst > 0) { d.burstT -= dt; if (d.burstT <= 0) { d.burstT = 0.16; d.burst--; eShot(d, 540, 0, 0, 2.2, 56, [1, 0.3, 0.15], 3.4 + d.r / 100); } }
       d.fireT -= dt;
       if (d.fireT <= 0 && dist > 90) {
         if (d.type === 'frigate' && dist < 1700) { if (++d.cnt % 3 === 0) { d.fireT = 2.4 + Math.random(); for (var q = -1; q <= 1; q++) eShot(d, 450, q * 0.06, 1, 2.6, 36, [1, 0.45, 0.2], 3.8); } else { d.fireT = 1.9 + Math.random() * 0.8; d.burst = 4; d.burstT = 0; } }
@@ -664,7 +664,7 @@
           if (++d.cnt % 2 === 0) { eShot(d, 340, -0.03, 2, 9, 70, [1, 0.45, 0.15], 6.5); eShot(d, 340, 0.03, 2, 9, 70, [1, 0.45, 0.15], 6.5); }
         }
         else if (d.type === 'carrier' && dist < 2700) { d.fireT = 2.2 + Math.random() * 0.9; eShot(d, 480, 0, 0, 2.0, 44, [1, 0.6, 0.2], 4.4); }
-        else if (d.type === 'dread' && dist < 3000) {
+        else if (d.type === 'dread' && dist < 3400) {
           if (Math.random() < 0.55 && d.charge <= 0) { d.fireT = 5.2 + Math.random() * 1.5; d.charge = 1.1; ring(d.pos, d.r * 2.2, 0xff5a30, 1.1); events.push({ type: 'cannon', name: d.name }); }
           else { d.fireT = 3.2 + Math.random(); d.burst = 5; d.burstT = 0; }
         }
@@ -712,18 +712,18 @@
     var spec = [], f = { mercury: 2, venus: 3, earth: 3, mars: 3, jupiter: 5, saturn: 4, uranus: 3, neptune: 4, pluto: 2 };
     ORDER.forEach(function (id) { for (var k = 0; k < f[id]; k++) spec.push({ type: 'fighter', home: id, k: k, n: f[id] }); });
     for (var s = 0; s < 12; s++) spec.push({ type: 'shuttle', home: null });
-    ['mars', 'jupiter', 'saturn'].forEach(function (id) { spec.push({ type: 'warship', home: id }); });
-    [['frigate', 4], ['warship', 2], ['cruiser', 3], ['carrier', 2], ['dread', 3]].forEach(function (p) { for (var q = 0; q < p[1]; q++) spec.push({ type: p[0], home: null }); });
+    spec.push({ type: 'warship', home: 'mars' }); spec.push({ type: 'frigate', home: null }); spec.push({ type: 'frigate', home: null });
+    [['frigate', 3], ['warship', 4], ['cruiser', 3], ['carrier', 2], ['dread', 3]].forEach(function (p) { for (var q = 0; q < p[1]; q++) spec.push({ type: p[0], home: null, reserve: true, sched: true }); });
     for (var r = 0; r < 20; r++) spec.push({ type: 'fighter', home: null, reserve: true });
     for (var r2 = 0; r2 < 4; r2++) spec.push({ type: 'shuttle', home: null, reserve: true });
-    for (var r3 = 0; r3 < 3; r3++) spec.push({ type: 'frigate', home: null, reserve: true }); spec.push({ type: 'warship', home: null, reserve: true }); spec.push({ type: 'warship', home: null, reserve: true }); spec.push({ type: 'cruiser', home: null, reserve: true });
+    for (var r3 = 0; r3 < 3; r3++) spec.push({ type: 'frigate', home: null, reserve: true });
     ['g_bulwark', 'g_lancer', 'g_hive', 'g_reaper'].forEach(function (t) { spec.push({ type: t, home: null, reserve: true, guard: true }); });
     return spec;
   })();
-  var drones = [], reinT = 14;
+  var drones = [], reinT = 14, schedT = 25;
   ENEMY_POOL.forEach(function (sp) {
     var T = ETYPE[sp.type];
-    drones.push({ g: buildEnemy(sp.type === 'dread' ? 'warship' : sp.type), sc: T.sc, type: sp.type, name: T.name, r: T.r, max: T.hp, sp: sp, pos: new V3(), vel: new V3(), hp: 0, alive: false, awake: false, home: sp.home, anchor: new V3(), pr: 300, ang: 0, fireT: 0, burst: 0, burstT: 0, side: 1, ph: Math.random() * 6, flash: 0, ramT: 0, charge: 0, reserve: !!sp.reserve, guard: !!sp.guard, ship: SHIPS.indexOf(sp.type) >= 0, cnt: 0, st: 0, stT: 3, dashDir: new V3(), ls: 0, lT: 0, aim: new V3(), bdir: new V3(), bhit: false, spT: 6 });
+    drones.push({ g: buildEnemy(sp.type === 'dread' ? 'warship' : sp.type), sc: T.sc, type: sp.type, name: T.name, r: T.r, max: T.hp, sp: sp, pos: new V3(), vel: new V3(), hp: 0, alive: false, awake: false, home: sp.home, anchor: new V3(), pr: 300, ang: 0, fireT: 0, burst: 0, burstT: 0, side: 1, ph: Math.random() * 6, flash: 0, ramT: 0, charge: 0, reserve: !!sp.reserve, guard: !!sp.guard, ship: SHIPS.indexOf(sp.type) >= 0, sched: !!sp.sched, cnt: 0, st: 0, stT: 3, dashDir: new V3(), ls: 0, lT: 0, aim: new V3(), bdir: new V3(), bhit: false, spT: 6 });
   });
   function randAnchor(out, minFromStart) {
     for (var t = 0; t < 40; t++) {
@@ -737,7 +737,7 @@
     d.g.position.copy(d.pos); d.g.visible = true; d.vel.set(0, 0, 0);
   }
   function resetDrones() {
-    reinT = 14;
+    reinT = 14; schedT = 25;
     drones.forEach(function (d) {
       var sp = d.sp, T = ETYPE[d.type]; d.alive = !d.reserve; d.awake = false; d.hp = T.hp; d.max = T.hp; d.fireT = 1 + Math.random() * 2.5; d.burst = 0; d.burstT = 0; d.flash = 0; d.ramT = 0; d.charge = 0; d.side = Math.random() < 0.5 ? -1 : 1; d.vel.set(0, 0, 0); d.ang = Math.random() * TAU; d.ph = Math.random() * 6;
       if (d.reserve) { d.g.visible = false; return; }
@@ -753,8 +753,8 @@
   function spawnReinforce(n) {
     var made = 0;
     for (var k = 0; k < n; k++) {
-      var free = drones.filter(function (d) { return d.reserve && !d.alive && !d.guard; }); if (!free.length) break;
-      var heavy = G.destroyed >= 1 && Math.random() < 0.3, mid = Math.random() < 0.3, want = heavy ? ['frigate', 'frigate', 'warship', 'cruiser'][Math.floor(Math.random() * 4)] : (mid ? 'shuttle' : 'fighter');
+      var free = drones.filter(function (d) { return d.reserve && !d.alive && !d.guard && !d.sched; }); if (!free.length) break;
+      var heavy = G.destroyed >= 1 && Math.random() < 0.3, mid = Math.random() < 0.3, want = heavy ? 'frigate' : (mid ? 'shuttle' : 'fighter');
       var pick = free.filter(function (d) { return d.type === want; }); if (!pick.length) pick = free; var d = pick[Math.floor(Math.random() * pick.length)], T = ETYPE[d.type];
       d.alive = true; d.awake = true; d.hp = T.hp; d.max = T.hp; d.fireT = 1.6 + Math.random(); d.flash = 0; d.burst = 0; d.charge = 0; d.vel.set(0, 0, 0);
       var vx = Math.random() * 2 - 1, vy = (Math.random() * 2 - 1) * 0.7, vz = Math.random() * 2 - 1, vl = Math.hypot(vx, vy, vz) || 1, rr = 1100 + Math.random() * 500;
@@ -762,6 +762,27 @@
       d.g.position.copy(d.pos); d.g.visible = true; d.g.scale.setScalar(d.sc); made++; ring(d.pos, 60, 0xff7744, 0.5);
     }
     return made;
+  }
+  function shipTarget(t) {
+    var pts = [[0, 2], [90, 3], [240, 6], [420, 9], [600, 10], [780, 7]];
+    if (t >= pts[pts.length - 1][0]) return pts[pts.length - 1][1];
+    for (var i = 1; i < pts.length; i++) if (t < pts[i][0]) { var a = pts[i - 1], b = pts[i]; return Math.round(a[1] + (b[1] - a[1]) * (t - a[0]) / (b[0] - a[0])); }
+    return 2;
+  }
+  function spawnCapital() {
+    var t = G.t, alive = 0, dreads = 0, cand = [];
+    drones.forEach(function (d) { if (d.alive && d.ship && !d.guard) { alive++; if (d.type === 'dread') dreads++; } });
+    if (alive >= shipTarget(t)) return false;
+    var W = { frigate: t < 240 ? 3 : 1, warship: t > 60 ? (t < 300 ? 3 : 1.5) : 0, cruiser: t > 150 ? (t < 300 ? 2 : 3) : 0, carrier: t > 240 ? 2.5 : 0, dread: (t > 330 && dreads < (t > 540 ? 2 : 1)) ? 1 : 0 }, tot = 0;
+    drones.forEach(function (d) { if (d.sched && !d.alive && W[d.type] > 0) { cand.push(d); tot += W[d.type]; } });
+    if (!cand.length) return false;
+    var r = Math.random() * tot, pick = cand[0];
+    for (var i = 0; i < cand.length; i++) { r -= W[cand[i].type]; if (r <= 0) { pick = cand[i]; break; } }
+    var d = pick, T = ETYPE[d.type], a = Math.random() * TAU, rr = 4800 + Math.random() * 1400;
+    d.alive = true; d.awake = true; d.hp = T.hp; d.max = T.hp; d.fireT = 2.5 + Math.random(); d.flash = 0; d.burst = 0; d.charge = 0; d.spT = 6; d.vel.set(0, 0, 0);
+    d.pos.set(G.pos.x + Math.cos(a) * rr, G.pos.y + (Math.random() - 0.5) * 600, G.pos.z + Math.sin(a) * rr);
+    d.g.position.copy(d.pos); d.g.visible = true; d.g.scale.setScalar(d.sc); ring(d.pos, d.r * 0.8, 0xff7744, 0.8);
+    return true;
   }
   function killDrone(d, byBomb) {
     var T = ETYPE[d.type]; d.alive = false; d.g.visible = false; G.kills++; award('killScore', T.score); bump(T.bump);
@@ -783,6 +804,7 @@
   }
   function updateDrones(dt) {
     if (G && !G.result && !boss.alive) { reinT -= dt; if (reinT <= 0) { reinT = 13 + Math.random() * 5; var awakeN = 0; drones.forEach(function (d) { if (d.alive && d.awake) awakeN++; }); if (awakeN < 10 && spawnReinforce(awakeN < 4 ? 3 : 2)) events.push({ type: 'reinforce' }); } }
+    if (G && !G.result && !boss.alive) { schedT -= dt; if (schedT <= 0) { schedT = 8; if (spawnCapital()) events.push({ type: 'reinforce' }); } }
     drones.forEach(function (d) {
       if (!d.alive) return; var T = ETYPE[d.type], toP = tmpA.copy(G.pos).sub(d.pos), dist = toP.length(); d.flash = Math.max(0, d.flash - dt * 5);
       if (d.ramT > 0) d.ramT -= dt;
