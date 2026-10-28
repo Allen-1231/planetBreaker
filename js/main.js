@@ -1336,22 +1336,24 @@
     G.lock = null;
     if (!G.result && (G.shots >= 0)) { var lk = findTarget(0.075 + 0.04 * U.homing + (touchMode ? 0.05 : 0), 2600); if (lk) G.lock = lk; }
     shipE.set(G.pitch, G.yaw, G.bank * 0.45, 'YXZ');
+    G.spool = clampN((G.spool || 0) + ((inp.fire && !G.overheat && !G.result) ? dt / 0.8 : -dt * 2.2), 0, 1);
     if (inp.fire && !G.overheat && G.cdFire <= 0 && !G.result) {
-      G.cdFire = 0.1 * (1 - 0.22 * U.rapid); G.heat += 0.024 * (1 - 0.2 * U.cool) * (1 + 0.3 * U.twin + 0.12 * U.spread); G.shots++; kick += 0.0042; if (G.heat >= 1) { G.heat = 1; G.overheat = true; events.push({ type: 'overheat' }); }
+      G.cdFire = (0.135 - 0.04 * (G.spool || 0)) * (1 - 0.22 * U.rapid); shake = Math.max(shake, 0.13 + 0.17 * (G.spool || 0)); kick += 0.003 * (G.spool || 0); G.heat += 0.024 * (1 - 0.2 * U.cool) * (1 + 0.3 * U.twin + 0.12 * U.spread); G.shots++; kick += 0.0042; if (G.heat >= 1) { G.heat = 1; G.overheat = true; events.push({ type: 'overheat' }); }
       // convergence point: crosshair line, snapped to a locked target
       var sd = G.lock; tmpB.copy(G.pos).addScaledVector(fwd, 1100);
       var nSides = U.twin ? 2 : 1, offN = U.spread === 0 ? 1 : (U.spread === 1 ? 3 : 5), shotV = 3000, bcol = U.homing ? [0.75, 0.55, 1.0] : (U.pierce ? [0.5, 1.0, 0.7] : [0.3, 0.85, 1.0]);
       for (var si = 0; si < nSides; si++) {
         var sgn = U.twin ? (si ? 1 : -1) : (G.side = -G.side);
         tmpA.set(sgn * 1.9, -1.0, -2.4).applyEuler(shipE).add(G.pos); tmpD.copy(G.pos).addScaledVector(fwd, 1100);
-        if (sd) { tmpD.copy(sd.p).addScaledVector(tmpC.copy(sd.v).sub(G.vel), G.pos.distanceTo(sd.p) / 3000 * 0.8); }
+        if (sd) { tmpD.copy(sd.p).addScaledVector(sd.v, G.pos.distanceTo(sd.p) / 3000 * 0.8); }
         tmpC.copy(tmpD).sub(tmpA).normalize(); tmpE.crossVectors(tmpC, UPV).normalize();
         for (var oi = 0; oi < offN; oi++) {
-          var off = (oi - (offN - 1) / 2) * 0.05; tmpB.copy(tmpC).addScaledVector(tmpE, off).normalize().multiplyScalar(shotV).add(G.vel);
+          var off = (oi - (offN - 1) / 2) * 0.05; tmpB.copy(tmpC).addScaledVector(tmpE, off).normalize().multiplyScalar(shotV);
           tmpB.x += (Math.random() - 0.5) * 4; tmpB.y += (Math.random() - 0.5) * 4; tmpB.z += (Math.random() - 0.5) * 4;
           spawnBullet(true, tmpA, tmpB, 4.6, { pierce: U.pierce ? 2 : 0, home: U.homing, col: bcol });
         }
-        emit(tmpA.x, tmpA.y, tmpA.z, fwd.x * 40, fwd.y * 40, fwd.z * 40, 0.08, 1.3, 0.6, 0.95, 1);
+        emit(tmpA.x, tmpA.y, tmpA.z, fwd.x * 40, fwd.y * 40, fwd.z * 40, 0.08, 1.3, 0.6, 0.95, 1); emit(tmpA.x + fwd.x * 1.5, tmpA.y + fwd.y * 1.5, tmpA.z + fwd.z * 1.5, G.vel.x, G.vel.y, G.vel.z, 0.05, 3.6, 0.85, 1, 1);
+        emit(tmpA.x, tmpA.y, tmpA.z, G.vel.x + (Math.random() - 0.5) * 30 + sgn * 22, G.vel.y + 14 + Math.random() * 10, G.vel.z + (Math.random() - 0.5) * 30, 0.35, 0.5, 1, 0.8, 0.4);
       }
       events.push({ type: 'shot' });
     }
@@ -1552,7 +1554,7 @@
     } catch (e) { fsFail(); }
   }
   ['bFull', 'bFullM', 'bFullP'].forEach(function (id) { var b = $(id); if (b) b.addEventListener('click', toggleFS); });
-  sfx.shot = function () { tone(1500 + Math.random() * 260, 0.09, 'triangle', 0.05, 380); };
+  sfx.shot = function () { if (!AC) return; tone(2300 + Math.random() * 400, 0.07, 'sawtooth', 0.035, 520); tone(150, 0.08, 'sine', 0.14, 55); noiseHit(0.05, 0.09, 3200, 700); };
   sfx.tick = function () { tone(2300, 0.045, 'sine', 0.05, 1500); };
   sfx.shield = function () { tone(720 + Math.random() * 90, 0.12, 'sine', 0.06, 420); };
   sfx.shieldDown = function () { tone(900, 0.55, 'sawtooth', 0.09, 110); noiseHit(0.5, 0.22, 3200, 220); tone(300, 0.7, 'triangle', 0.14, 60); };
@@ -1571,7 +1573,7 @@
   function handleEvents() {
     var ev = events; events = [];
     ev.forEach(function (e) {
-      if (e.type === 'shot') { var now = performance.now(); if (now - shotSfxT > 70) { shotSfxT = now; sfx.shot(); } }
+      if (e.type === 'shot') { var now = performance.now(); if (now - shotSfxT > 38) { shotSfxT = now; sfx.shot(); } }
       else if (e.type === 'phit') { /* quiet */ }
       else if (e.type === 'tick') { var tn = performance.now(); if (tn - tickT > 45) { tickT = tn; sfx.tick(); } }
       else if (e.type === 'enemyDown') { news('擊沉' + e.name + '！補充能量', 'good'); }
@@ -1806,7 +1808,7 @@
       }
       if (!aim) return { yaw: 0, pitch: 0, thrust: 0 };
       var tv = vel || ZV, d0 = aim.clone().sub(G.pos), dist0 = d0.length(), u = d0.clone().multiplyScalar(1 / Math.max(dist0, 1));
-      var tl = Math.min(dist0 / 3000, 2.5), ap = aim.clone().addScaledVector(tv, tl).addScaledVector(G.vel, -tl);
+      var tl = Math.min(dist0 / 3000, 2.5), ap = aim.clone().addScaledVector(tv, tl);
       var d = ap.sub(G.pos), dist = d.length(), wy = Math.atan2(-d.x, -d.z), dy = wy - G.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
       var wp = Math.atan2(d.y, Math.hypot(d.x, d.z)), dp = wp - G.pitch, tol = Math.max(0.05, Math.atan(R0 * 0.8 / Math.max(dist, 1))), aligned = Math.abs(dy) < tol && Math.abs(dp) < tol, surf = dist0 - R0;
       var closing = -(G.vel.clone().sub(tv)).dot(u), desired = surf > stand ? Math.min(420, Math.sqrt(2 * 110 * (surf - stand))) : -Math.min(60, (stand - surf) * 0.2);
