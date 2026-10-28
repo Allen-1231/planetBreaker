@@ -151,6 +151,7 @@
   #ovPause { align-items: center; justify-content: center; padding-block: 24px; background: radial-gradient(ellipse at center, rgba(3, 5, 10, 0.82) 0, rgba(3, 5, 10, 0.62) 70%, rgba(3, 5, 10, 0.45) 100%); }
   #ovPause .card { margin: auto; align-items: center; text-align: center; }
   #ovPause .actions { justify-content: center; }
+  #pauseTip { max-width: min(60ch, 92vw); text-wrap: balance; font-size: 13.5px; line-height: 1.7; color: var(--accent); }
   #hpList { position: fixed; z-index: 3; left: max(16px, env(safe-area-inset-left, 0px)); bottom: max(30px, calc(env(safe-area-inset-bottom, 0px) + 26px)); width: min(180px, 40vw); display: none; flex-direction: column; gap: 3px; pointer-events: none; text-shadow: 0 1px 3px #000; }
   body.play #hpList, body.pause #hpList, body.pick #hpList { display: flex; }
   body.touch #hpList, body.scoped #hpList { display: none; }
