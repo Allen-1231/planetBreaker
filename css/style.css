@@ -148,6 +148,23 @@
   #scope svg { width: min(92vh, 92vw); height: min(92vh, 92vw); filter: drop-shadow(0 0 4px rgba(127, 227, 255, 0.5)); }
   #scope b { position: absolute; left: 50%; bottom: calc(50% - min(46vh, 46vw) + 14px); transform: translateX(-50%); font-family: var(--font-mono); font-size: 12px; font-weight: 500; letter-spacing: 0.12em; color: var(--accent); text-shadow: 0 0 6px #000; }
   body.scoped #scope { display: grid; }
+  #ovPause { align-items: center; justify-content: center; padding-block: 24px; background: radial-gradient(ellipse at center, rgba(3, 5, 10, 0.82) 0, rgba(3, 5, 10, 0.62) 70%, rgba(3, 5, 10, 0.45) 100%); }
+  #ovPause .card { margin: auto; align-items: center; text-align: center; }
+  #ovPause .actions { justify-content: center; }
+  #hpList { position: fixed; z-index: 3; left: max(16px, env(safe-area-inset-left, 0px)); bottom: max(30px, calc(env(safe-area-inset-bottom, 0px) + 26px)); width: min(180px, 40vw); display: none; flex-direction: column; gap: 3px; pointer-events: none; text-shadow: 0 1px 3px #000; }
+  body.play #hpList, body.pause #hpList, body.pick #hpList { display: flex; }
+  body.touch #hpList, body.scoped #hpList { display: none; }
+  #hpList .hr { display: grid; grid-template-columns: 30px 1fr 42px; align-items: center; gap: 6px; font-size: 10px; color: #b3c0d4; }
+  #hpList .hn { color: var(--fg); }
+  #hpList .hb { height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+  #hpList .hb i { display: block; height: 100%; width: 100%; border-radius: 3px; background: linear-gradient(90deg, #ff8a4a, #ff5a3a); }
+  #hpList .hv { font-family: var(--font-mono); font-size: 9px; text-align: right; color: var(--muted); }
+  #hpList .tgt .hb i { background: linear-gradient(90deg, #7fe3ff, #4fb8ff); }
+  #hpList .tgt .hv { color: var(--accent); }
+  #tgt, #pips, #timer { display: none !important; }
+  #hpList .dead { opacity: 0.45; }
+  #hpList .dead .hn { text-decoration: line-through; }
+  #hpList .wait .hb i, #hpList .guard .hb i { background: linear-gradient(90deg, #ffd27a, #ffa83a); }
   body.scoped #canopy, body.scoped #cross { display: none !important; }
   .card { width: min(580px, 100%); display: flex; flex-direction: column; gap: 12px; min-width: 0; margin-top: auto; }
   h1 { margin: 0; font-size: clamp(34px, 9vw, 60px); line-height: 1.05; font-weight: 900; letter-spacing: 0.02em; text-wrap: balance; }
