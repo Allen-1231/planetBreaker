@@ -138,6 +138,15 @@
 
   .overlay { position: fixed; inset: 0; z-index: 5; display: flex; align-items: flex-end; justify-content: flex-start; padding-block: 24px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); background: linear-gradient(to top, rgba(3, 5, 10, 0.93) 0, rgba(3, 5, 10, 0.55) 60%, rgba(3, 5, 10, 0) 100%); overflow-y: auto; }
   .overlay[hidden] { display: none; }
+  #ovMenu { align-items: center; justify-content: center; padding-block: 24px; background: radial-gradient(ellipse at center, rgba(3, 5, 10, 0.86) 0, rgba(3, 5, 10, 0.68) 65%, rgba(3, 5, 10, 0.5) 100%); }
+  #ovMenu .card { margin: auto; align-items: center; text-align: center; }
+  #ovMenu .rules { text-align: left; }
+  #ovMenu .actions { justify-content: center; }
+  #scope { position: fixed; inset: 0; z-index: 2; pointer-events: none; display: none; place-items: center; background: radial-gradient(circle at center, rgba(0, 0, 0, 0) 0, rgba(0, 0, 0, 0) min(46vh, 46vw), rgba(0, 0, 0, 0.94) calc(min(46vh, 46vw) + 2px)); }
+  #scope svg { width: min(92vh, 92vw); height: min(92vh, 92vw); filter: drop-shadow(0 0 4px rgba(127, 227, 255, 0.5)); }
+  #scope b { position: absolute; left: 50%; bottom: calc(50% - min(46vh, 46vw) + 14px); transform: translateX(-50%); font-family: var(--font-mono); font-size: 12px; font-weight: 500; letter-spacing: 0.12em; color: var(--accent); text-shadow: 0 0 6px #000; }
+  body.scoped #scope { display: grid; }
+  body.scoped #canopy, body.scoped #cross { display: none !important; }
   .card { width: min(580px, 100%); display: flex; flex-direction: column; gap: 12px; min-width: 0; margin-top: auto; }
   h1 { margin: 0; font-size: clamp(34px, 9vw, 60px); line-height: 1.05; font-weight: 900; letter-spacing: 0.02em; text-wrap: balance; }
   h1 span { color: var(--accent); }
