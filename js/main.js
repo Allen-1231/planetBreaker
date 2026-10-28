@@ -978,9 +978,9 @@
   function killCore(c) {
     if (!c.alive) return; c.alive = false; c.g.visible = false; var B = c.B;
     burst(c.pos, 26, 70, 2.6, 1, 0.6, 0.25, 0.9); fireball(c.pos, c.cs * 7, 0.7); ring(c.pos, c.cs * 10, 0xffa060, 0.6);
-    G.coresKilled++; award('killScore', 200); bump(2); B.hp = coreLeft(B); shake = Math.max(shake, Math.max(0, 1.2 - G.pos.distanceTo(c.pos) / 500));
-    if (B.hp <= 0) { B.state = 'dying'; B.dyingT = 1.5; events.push({ type: 'dying', id: B.id }); }
-    else events.push({ type: 'core', left: B.hp, id: B.id });
+    G.coresKilled++; award('killScore', 200); bump(2); if (B.state === 'alive') { B.hp = Math.max(0, B.hp - B.maxHp * 0.05); B.u.flash.value = 1; } shake = Math.max(shake, Math.max(0, 1.2 - G.pos.distanceTo(c.pos) / 500));
+    if (B.state === 'alive' && B.hp <= 0) { B.state = 'dying'; B.dyingT = 1.5; events.push({ type: 'dying', id: B.id }); }
+    else events.push({ type: 'core', left: coreLeft(B), id: B.id });
   }
   function coreAim(c, speed, spreadOff, kind, w, len, col) {
     var dist = c.pos.distanceTo(G.pos), lead = dist / speed;
@@ -1240,6 +1240,7 @@
     return best;
   }
   function targetPlanet() {
+    if (G.hitPl && G.hitPl.state !== 'dead' && G.t - G.hitPlT < 6) return G.hitPl;
     var best = null, bd = 1e12;
     ORDER.forEach(function (id) { var P = bodies[id]; if (P.state === 'dead') return; var d = G.pos.distanceTo(P.pos); if (d < bd) { bd = d; best = P; } });
     return best;
@@ -1270,7 +1271,7 @@
     return n;
   }
   function hitPlanetUnused(B, dmg, p) {
-    if (B.state !== 'alive') return; B.hp -= dmg; B.u.flash.value = Math.min(1, B.u.flash.value + 0.5); G.dmgDealt += dmg;
+    if (B.state !== 'alive') return; if (G) { G.hitPl = B; G.hitPlT = G.t; } B.hp -= dmg; B.u.flash.value = Math.min(1, B.u.flash.value + 0.5); G.dmgDealt += dmg;
     if (B.hp <= 0) { B.hp = 0; B.state = 'dying'; B.dyingT = 1.5; events.push({ type: 'dying', id: B.id }); }
   }
   function boom(p, radius, dmg) {
@@ -1360,7 +1361,7 @@
     shipE.set(G.pitch, G.yaw, G.bank * 0.45, 'YXZ');
     G.spool = clampN((G.spool || 0) + ((inp.fire && !G.overheat && !G.result) ? dt / 0.8 : -dt * 2.2), 0, 1);
     if (inp.fire && !G.overheat && G.cdFire <= 0 && !G.result) {
-      G.cdFire = (0.135 - 0.04 * (G.spool || 0)) * (1 - 0.22 * U.rapid); shake = Math.max(shake, 0.13 + 0.17 * (G.spool || 0)); kick += 0.003 * (G.spool || 0); G.heat += 0.024 * (1 - 0.2 * U.cool) * (1 + 0.3 * U.twin + 0.12 * U.spread); G.shots++; kick += 0.0042; if (G.heat >= 1) { G.heat = 1; G.overheat = true; events.push({ type: 'overheat' }); }
+      G.cdFire = (0.135 - 0.04 * (G.spool || 0)) * (1 - 0.22 * U.rapid); shake = Math.max(shake, 0.07 + 0.09 * (G.spool || 0)); kick += 0.003 * (G.spool || 0); G.heat += 0.024 * (1 - 0.2 * U.cool) * (1 + 0.3 * U.twin + 0.12 * U.spread); G.shots++; kick += 0.0042; if (G.heat >= 1) { G.heat = 1; G.overheat = true; events.push({ type: 'overheat' }); }
       // convergence point: crosshair line, snapped to a locked target
       var sd = G.lock; tmpB.copy(G.pos).addScaledVector(fwd, 1100);
       var nSides = U.twin ? 2 : 1, offN = U.spread === 0 ? 1 : (U.spread === 1 ? 3 : 5), shotV = 3000, bcol = U.homing ? [0.75, 0.55, 1.0] : (U.pierce ? [0.5, 1.0, 0.7] : [0.3, 0.85, 1.0]);
@@ -1462,6 +1463,28 @@
   /* ---------- input ---------- */
   var accDx = 0, accDy = 0, usePL = false;
   var scopeShown = false, scopeEl = document.createElement('div'); scopeEl.id = 'scope'; scopeEl.innerHTML = '<svg viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet"><circle cx="100" cy="100" r="98" fill="none" stroke="rgba(127,227,255,.55)" stroke-width="1.2"/><circle cx="100" cy="100" r="46" fill="none" stroke="rgba(127,227,255,.35)" stroke-width="0.8"/><path d="M100 6V88M100 112V194M6 100H88M112 100H194" stroke="rgba(127,227,255,.9)" stroke-width="1.1"/><path d="M100 58V70M100 130V142M58 100H70M130 100H142M80 100h4M116 100h4M100 80v4M100 116v4" stroke="rgba(127,227,255,.7)" stroke-width="1"/><circle cx="100" cy="100" r="1.6" fill="#ff5a4d"/></svg><b>放大 ×' + (FPFOV / SCOPE_FOV).toFixed(1) + '</b>'; document.body.appendChild(scopeEl);
+  var hpListEl = document.createElement('div'); hpListEl.id = 'hpList'; hpListEl.setAttribute('aria-label', '太陽與行星血量');
+  var hpRows = [];
+  ['sun'].concat(ORDER).forEach(function (id) {
+    var row = document.createElement('div'); row.className = 'hr'; row.innerHTML = '<span class="hn"></span><span class="hb"><i></i></span><span class="hv"></span>';
+    row.firstChild.textContent = id === 'sun' ? '太陽' : PL[id].name; hpListEl.appendChild(row); hpRows.push({ id: id, row: row, bar: row.querySelector('i'), val: row.querySelector('.hv'), cf: -1, ct: '' });
+  });
+  document.body.appendChild(hpListEl);
+  function updateHpList() {
+    for (var i = 0; i < hpRows.length; i++) {
+      var r = hpRows[i], f, t, st = '';
+      if (r.id === 'sun') {
+        if (boss.alive) { f = boss.hp / boss.max; t = boss.stage === 1 ? '守衛中' : String(Math.ceil(boss.hp)); st = boss.stage === 1 ? 'guard' : ''; }
+        else if (G.bossKilled || boss.dying > 0) { f = 0; t = '已擊毀'; st = 'dead'; } else { f = 1; t = String(boss.max); st = 'wait'; }
+      } else {
+        var B = bodies[r.id];
+        if (B.state === 'dead') { f = 0; t = '已擊毀'; st = 'dead'; } else { f = B.state === 'dying' ? 0 : B.hp / B.maxHp; t = B.state === 'dying' ? '崩解中' : Math.ceil(B.hp) + ''; st = (G.tgt === B) ? 'tgt' : ''; }
+      }
+      var w = (Math.max(0, Math.min(1, f)) * 100).toFixed(1);
+      if (w !== r.cf) { r.cf = w; r.bar.style.width = w + '%'; }
+      if (t + st !== r.ct) { r.ct = t + st; r.val.textContent = t; r.row.className = 'hr' + (st ? ' ' + st : ''); }
+    }
+  }
   var keys = {}, mouseNDC = { x: 0, y: 0 }, mouseSeen = false, mouseL = false, mouseR = false, touchMode = false, touchStick = null, btnBoost = false, btnFire = false, btnThrust = false, btnBrake = false, bombReq = false;
   function setTouch(on) { if (touchMode === on) return; touchMode = on; document.body.classList.toggle('touch', on); }
   if (window.matchMedia && matchMedia('(pointer: coarse)').matches) setTouch(true);
@@ -1658,10 +1681,10 @@
       /* first-person cockpit camera */
       shipE.set(G.pitch, G.yaw, G.bank * 0.45, 'YXZ'); kick *= Math.exp(-rdt * 10);
       tmpA.set(0, 0.8, -0.9).applyEuler(shipE); camera.position.copy(G.pos).add(tmpA);
-      var sp = Math.max(0, (G.speed - SPEED_BASE) / (SPEED_BOOST - SPEED_BASE)), sk = shake > 0.01 ? shake : 0, jx = 0, jy = 0, jz = 0;
+      var sp = Math.max(0, (G.speed - SPEED_BASE) / (SPEED_BOOST - SPEED_BASE)), scopedNow = !!(G && mode === 'play' && mouseR && !touchMode && !G.result), sk = shake > 0.01 ? shake * (scopedNow ? 0.12 : 0.55) : 0, kk2 = scopedNow ? 0.2 : 0.8, jx = 0, jy = 0, jz = 0;
       if (sk) { camera.position.x += (Math.random() - 0.5) * sk * 0.9; camera.position.y += (Math.random() - 0.5) * sk * 0.9; camera.position.z += (Math.random() - 0.5) * sk * 0.9; jx = (Math.random() - 0.5) * sk * 0.018; jy = (Math.random() - 0.5) * sk * 0.018; jz = (Math.random() - 0.5) * sk * 0.03; shake *= Math.exp(-rdt * 6); } else shake = 0;
-      camera.rotation.order = 'YXZ'; camera.rotation.set(G.pitch + kick + jx, G.yaw + jy, G.bank * 0.45 + jz);
-      fovT = FPFOV + 22 * sp + (G.braking ? -6 : 0) + 6 * G.prox + kick * 40 - (mode === 'ready' ? 18 * Math.max(0, Math.min(1, G.readyT / 3.4)) : 0);
+      camera.rotation.order = 'YXZ'; camera.rotation.set(G.pitch + kick * kk2 + jx, G.yaw + jy, G.bank * 0.45 + jz);
+      fovT = FPFOV + 22 * sp + (G.braking ? -6 : 0) + 6 * G.prox + kick * 40 * kk2 - (mode === 'ready' ? 18 * Math.max(0, Math.min(1, G.readyT / 3.4)) : 0);
       shipG.visible = false;
     }
     var scoped = !!(G && mode === 'play' && mouseR && !touchMode && !G.result); if (scoped) fovT = SCOPE_FOV; if (scoped !== scopeShown) { scopeShown = scoped; document.body.classList.toggle('scoped', scoped); }
@@ -1763,6 +1786,7 @@
     } else if (np && np.id === 'sun' && np.rel < 2) { altEl.textContent = '太陽 · 距離 ' + fmtN(np.alt) + ' 單位'; altEl.className = np.rel < 0.5 ? 'hot' : 'close'; }
     else { altEl.textContent = '深空巡航'; altEl.className = ''; }
     if (G.gmag > 0.8) altEl.textContent += ' · 引力 ' + G.gmag.toFixed(1); if (G.pos.length() > 16000) { altEl.textContent = '太陽系邊界・引力場正在拉你回來'; altEl.className = 'hot'; }
+    updateHpList();
     pips.forEach(function (p, i) { var B = bodies[ORDER[i]]; p.classList.toggle('done', B.state === 'dead'); p.classList.toggle('next', G.tgt === B && B.state !== 'dead'); });
     var vig = 0, vc = 'rgba(255,70,50,0.6)'; if (hp < 30) vig = Math.max(vig, (30 - hp) / 30 * 0.6 + 0.15);
     if (redVig > 0) { vig = Math.max(vig, redVig * 0.65); redVig = Math.max(0, redVig - 0.04); }
