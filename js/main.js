@@ -384,7 +384,7 @@
     warn: function () { tone(740, 0.1, 'square', 0.09); tone(740, 0.1, 'square', 0.09, null, 0.16); },
     boom: function () { tone(180, 1.2, 'sawtooth', 0.25, 28); noiseHit(1.0, 0.5, 2400, 100); },
     win: function () { [523, 659, 784, 1046, 1318].forEach(function (f, i) { tone(f, 0.5, 'triangle', 0.2, null, i * 0.12); }); },
-    beep: function (hi) { tone(hi ? 880 : 520, 0.24, 'triangle', 0.14, null, 0.04); }
+    beep: function (hi) { var f = hi ? 1047 : 659; tone(f, 0.32, 'sine', 0.2, null, 0.12); tone(f * 2, 0.2, 'sine', 0.03, null, 0.12); }
   };
   $('bMute').addEventListener('click', function () { muted = !muted; $('bMute').setAttribute('aria-pressed', muted ? 'true' : 'false'); $('bMute').style.opacity = muted ? 0.55 : 1; if (master) master.gain.setTargetAtTime(muted ? 0.0001 : 0.5, AC.currentTime, 0.05); });
 
@@ -419,7 +419,7 @@
   var mode = 'menu'; // menu | ready | play | pause | over
   var G = null;
   var HULL_MAX = 100, ENERGY_MAX = 100;
-  var SPEED_BASE = 300, SPEED_BOOST = 700, SPEED_CRUISE = 300, SPEED_IDLE = 130, STRAFE_V = 150, LIFT_V = 120, ACC_MAIN = 190, ACC_BOOST = 520, ACC_SIDE = 130, ACC_BRAKE = 240, VMAX = 800, VMAX_BOOST = 1150, MU_SUN = 9.77e6, GS = 4.5, YAW_RATE = 0.8, PITCH_RATE = 0.65, FPFOV = 74, MSENS = 0.0008;
+  var SPEED_BASE = 300, SPEED_BOOST = 700, SPEED_CRUISE = 300, SPEED_IDLE = 130, STRAFE_V = 150, LIFT_V = 120, ACC_MAIN = 190, ACC_BOOST = 520, ACC_SIDE = 130, ACC_BRAKE = 240, VMAX = 800, VMAX_BOOST = 1150, MU_SUN = 9.77e6, GS = 4.5, YAW_RATE = 0.8, PITCH_RATE = 0.65, FPFOV = 74, MSENS = 0.0008, SCOPE_FOV = 19, PHIT = 0.92;
   var SENS = 1, SENS_LV = [0.5, 1, 1.7], SENS_NM = ['低', '中', '高'], sensI = 1;
   try { var _si = parseInt(localStorage.getItem('pbSens2'), 10); if (_si >= 0 && _si <= 2) { sensI = _si; SENS = SENS_LV[sensI]; } } catch (_) {}
   var KMS = 0.1;
@@ -451,7 +451,7 @@
   ORDER.forEach(function (id) { var B = bodies[id]; B.hp = 1; B.maxHp = 1; B.state = 'alive'; B.dyingT = 0; B.u.dmg = { value: 0 }; B.u.flash = { value: 0 }; });
 
   /* ---------- weapon & effect systems ---------- */
-  var NB = 110, NE = 320, NBUL = NB + NE, NBEAM = 8, NRIB = NBUL + NBEAM, UPV = new V3(0, 1, 0);
+  var NB = 280, NE = 320, NBUL = NB + NE, NBEAM = 8, NRIB = NBUL + NBEAM, UPV = new V3(0, 1, 0);
   var bAlive = new Uint8Array(NBUL), bPos = new Float32Array(NBUL * 3), bVel = new Float32Array(NBUL * 3), bLife = new Float32Array(NBUL), bOrg = new Float32Array(NBUL * 3);
   var bPierce = new Uint8Array(NBUL), bHome = new Uint8Array(NBUL), bKind = new Uint8Array(NBUL), bLen = new Float32Array(NBUL), bW = new Float32Array(NBUL), bCol = new Float32Array(NBUL * 3);
   var bulPos = new Float32Array(NBUL * 3), bulCol = new Float32Array(NBUL * 3), bulSize = new Float32Array(NBUL);
@@ -480,10 +480,10 @@
   function clearBeam(i) { beams[i].on = false; }
   var rq = new V3(), rd = new V3(), rs = new V3();
   function hideRib(slot) { var o = slot * 12; for (var k = 0; k < 4; k++) ribPos[o + k * 3 + 1] = -1e7; }
-  function writeRib(slot, hx, hy, hz, tx, ty, tz, hwMin, hwMax, r, g, b) {
+  function writeRib(slot, hx, hy, hz, tx, ty, tz, hwMin, hwMax, r, g, b, kk) {
     rd.set(hx - tx, hy - ty, hz - tz); var L = rd.length(); if (L < 1e-3) { hideRib(slot); return; } rd.multiplyScalar(1 / L);
     var mx = (hx + tx) * 0.5, my = (hy + ty) * 0.5, mz = (hz + tz) * 0.5; rq.set(camera.position.x - mx, camera.position.y - my, camera.position.z - mz);
-    var dist = rq.length(), hw = Math.max(dist * 0.002, Math.min(dist * 0.0036, hwMax)); if (hwMin > hw) hw = hwMin;
+    var dist = rq.length(), hw = Math.max(dist * 0.002 * (kk || 1), Math.min(dist * 0.0036 * (kk || 1), hwMax)); if (hwMin > hw) hw = hwMin;
     rs.crossVectors(rd, rq); var sl = rs.length(); if (sl < 1e-3) { rs.crossVectors(rd, UPV); sl = rs.length() || 1; } rs.multiplyScalar(hw / sl);
     var o = slot * 12;
     ribPos[o] = tx - rs.x; ribPos[o + 1] = ty - rs.y; ribPos[o + 2] = tz - rs.z; ribPos[o + 3] = tx + rs.x; ribPos[o + 4] = ty + rs.y; ribPos[o + 5] = tz + rs.z;
@@ -495,7 +495,7 @@
     for (var i = s; i < e; i++) if (!bAlive[i]) {
       bAlive[i] = 1; bPos[i * 3] = p.x; bPos[i * 3 + 1] = p.y; bPos[i * 3 + 2] = p.z; bOrg[i * 3] = p.x; bOrg[i * 3 + 1] = p.y; bOrg[i * 3 + 2] = p.z;
       bVel[i * 3] = v.x; bVel[i * 3 + 1] = v.y; bVel[i * 3 + 2] = v.z; bLife[i] = life; bKind[i] = o.kind || 0; bPierce[i] = o.pierce || 0; bHome[i] = o.home || 0;
-      bLen[i] = o.len || (isPlayer ? 24 : 36); bW[i] = o.w || (isPlayer ? 2.6 : 1.5);
+      bLen[i] = o.len || (isPlayer ? 11 : 36); bW[i] = o.w || (isPlayer ? 10 : 1.5);
       var c = o.col || (isPlayer ? [0.3, 0.85, 1.0] : [1.0, 0.32, 0.16]);
       bCol[i * 3] = c[0]; bCol[i * 3 + 1] = c[1]; bCol[i * 3 + 2] = c[2]; bulCol[i * 3] = c[0]; bulCol[i * 3 + 1] = c[1]; bulCol[i * 3 + 2] = c[2];
       return i;
@@ -506,10 +506,10 @@
     for (var i = 0; i < NBUL; i++) {
       if (!bAlive[i]) { bulSize[i] = 0; bulPos[i * 3 + 1] = -1e7; hideRib(i); continue; }
       var x = bPos[i * 3], y = bPos[i * 3 + 1], z = bPos[i * 3 + 2];
-      bulPos[i * 3] = x; bulPos[i * 3 + 1] = y; bulPos[i * 3 + 2] = z; bulSize[i] = i < NB ? 10 : (bKind[i] === 2 ? 26 : (bKind[i] === 1 ? 11 : 14));
+      bulPos[i * 3] = x; bulPos[i * 3 + 1] = y; bulPos[i * 3 + 2] = z; bulSize[i] = i < NB ? 7 : (bKind[i] === 2 ? 26 : (bKind[i] === 1 ? 11 : 14));
       var vx = bVel[i * 3], vy = bVel[i * 3 + 1], vz = bVel[i * 3 + 2], sp = Math.sqrt(vx * vx + vy * vy + vz * vz) || 1;
       var ox = x - bOrg[i * 3], oy = y - bOrg[i * 3 + 1], oz = z - bOrg[i * 3 + 2], od = Math.sqrt(ox * ox + oy * oy + oz * oz), L = Math.min(bLen[i], od);
-      writeRib(i, x, y, z, x - vx / sp * L, y - vy / sp * L, z - vz / sp * L, 0, bW[i], bCol[i * 3], bCol[i * 3 + 1], bCol[i * 3 + 2]);
+      writeRib(i, x, y, z, x - vx / sp * L, y - vy / sp * L, z - vz / sp * L, 0, bW[i], bCol[i * 3], bCol[i * 3 + 1], bCol[i * 3 + 2], i < NB ? 3.8 : 1);
     }
     for (var q = 0; q < NBEAM; q++) {
       var m = beams[q]; if (!m.on) { hideRib(NBUL + q); continue; }
@@ -581,12 +581,15 @@
   var ETYPE = {
     fighter: { name: '戰鬥機', hp: 30, r: 12, wake: 1400, score: 60, bump: 1, sc: 1.5 },
     shuttle: { name: '太空梭', hp: 90, r: 21, wake: 1150, score: 160, bump: 2, sc: 1.6 },
-    warship: { name: '戰艦', hp: 800, r: 45, wake: 2100, score: 800, bump: 5, sc: 1.5 },
-    g_bulwark: { name: '盾衛', hp: 2600, r: 70, wake: 3800, score: 2500, bump: 8, sc: 1 },
-    g_lancer: { name: '光矛', hp: 1700, r: 48, wake: 3800, score: 2500, bump: 8, sc: 1 },
-    g_hive: { name: '蜂后', hp: 2000, r: 60, wake: 3800, score: 2500, bump: 8, sc: 1 },
-    g_reaper: { name: '旋刃', hp: 1500, r: 42, wake: 3800, score: 2500, bump: 8, sc: 1 },
-    dread: { name: '巨型戰艦', hp: 3200, r: 80, wake: 2900, score: 3500, bump: 8, sc: 2.7 }
+    frigate: { name: '護衛艦', hp: 600, r: 32, wake: 6500, score: 500, bump: 4, sc: 2.2 },
+    warship: { name: '戰艦', hp: 1100, r: 62, wake: 6500, score: 1000, bump: 5, sc: 2.2 },
+    cruiser: { name: '巡洋艦', hp: 1800, r: 72, wake: 6000, score: 1600, bump: 6, sc: 1.8 },
+    carrier: { name: '航空母艦', hp: 2600, r: 95, wake: 5500, score: 2200, bump: 7, sc: 2.0 },
+    g_bulwark: { name: '盾衛', hp: 7800, r: 70, wake: 3800, score: 2500, bump: 8, sc: 1 },
+    g_lancer: { name: '光矛', hp: 5100, r: 48, wake: 3800, score: 2500, bump: 8, sc: 1 },
+    g_hive: { name: '蜂后', hp: 6000, r: 60, wake: 3800, score: 2500, bump: 8, sc: 1 },
+    g_reaper: { name: '旋刃', hp: 4500, r: 42, wake: 3800, score: 2500, bump: 8, sc: 1 },
+    dread: { name: '巨型戰艦', hp: 4000, r: 110, wake: 5000, score: 3500, bump: 8, sc: 4.2 }
   };
   var eMatRed = new THREE.MeshStandardMaterial({ color: 0x8a1f1a, emissive: 0x7a0a0a, emissiveIntensity: 0.9, roughness: 0.5, metalness: 0.3 });
   var eMatDark = new THREE.MeshStandardMaterial({ color: 0x2b2f3a, roughness: 0.6, metalness: 0.4 });
@@ -595,8 +598,90 @@
   var eMatLight = new THREE.MeshBasicMaterial({ color: 0xff3a2a });
   var eGlowTex = glowTex([[0, 'rgba(255,120,90,0.95)'], [0.35, 'rgba(255,60,40,0.4)'], [1, 'rgba(255,30,20,0)']]);
   var eEngTex = glowTex([[0, 'rgba(255,200,120,0.95)'], [0.4, 'rgba(255,120,40,0.4)'], [1, 'rgba(255,80,20,0)']]);
+  /* ---------- capital ships: frigate / warship / cruiser / carrier / dreadnought (they hunt the player) ---------- */
+  var SHIPS = ['frigate', 'warship', 'cruiser', 'carrier', 'dread'];
+  var SHIPAI = {
+    frigate: { spd: 250, near: 450, far: 850, side: 100, k: 1.3 },
+    warship: { spd: 190, near: 800, far: 1300, side: 60, k: 0.9 },
+    cruiser: { spd: 150, near: 1000, far: 1600, side: 70, k: 0.8 },
+    carrier: { spd: 120, near: 1500, far: 2200, side: 30, k: 0.6 },
+    dread: { spd: 105, near: 1600, far: 2400, side: 35, k: 0.5 }
+  };
+  function sMat(c, e, ei) { return new THREE.MeshStandardMaterial({ color: c, emissive: e || 0x000000, emissiveIntensity: ei || 0, roughness: 0.5, metalness: 0.6 }); }
+  function buildShipModel(type) {
+    var g = new THREE.Group(), m, i;
+    if (type === 'frigate') {
+      m = new THREE.Mesh(new THREE.BoxGeometry(4.6, 3, 26), sMat(0x4a6a78, 0x103040, 0.4)); g.add(m);
+      var pr = new THREE.Mesh(new THREE.ConeGeometry(3.3, 12, 4), sMat(0x5d8497)); pr.rotation.x = Math.PI / 2; pr.rotation.z = Math.PI / 4; pr.position.z = 19; pr.scale.set(1, 1, 0.6); g.add(pr);
+      [-1, 1].forEach(function (s) { var f = new THREE.Mesh(new THREE.BoxGeometry(9, 0.6, 8), sMat(0x233844, 0xff3a2a, 0.35)); f.position.set(s * 6, -0.4, -6); f.rotation.z = s * 0.18; g.add(f); var en = glowSprite(14, eEngTex); en.position.set(s * 1.6, 0, -14); g.add(en); });
+      var tu = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.6, 4), sMat(0x8a1f1a, 0xff3a2a, 0.6)); tu.position.set(0, 2.4, 6); g.add(tu); g.add(glowSprite(34, eGlowTex));
+    } else if (type === 'cruiser') {
+      m = new THREE.Mesh(new THREE.BoxGeometry(11, 5.5, 70), sMat(0x39425f, 0x101830, 0.4)); g.add(m);
+      var pr2 = new THREE.Mesh(new THREE.ConeGeometry(6.6, 18, 4), sMat(0x4c5878)); pr2.rotation.x = Math.PI / 2; pr2.rotation.z = Math.PI / 4; pr2.position.z = 44; pr2.scale.set(1, 1, 0.5); g.add(pr2);
+      var br = new THREE.Mesh(new THREE.BoxGeometry(6, 9, 11), sMat(0x1f2638, 0xff6a40, 0.35)); br.position.set(0, 7, -16); g.add(br);
+      [-1, 1].forEach(function (s) {
+        var pon = new THREE.Mesh(new THREE.BoxGeometry(5, 3.4, 52), sMat(0x2b3248)); pon.position.set(s * 9, -1, -4); g.add(pon);
+        for (i = 0; i < 3; i++) { var tr = new THREE.Mesh(new THREE.BoxGeometry(3.6, 2.2, 5), sMat(0x8a1f1a, 0xff3a2a, 0.5)); tr.position.set(s * 8.5, 2.2, 14 - i * 16); g.add(tr); var ba = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 9), sMat(0x1a1d28)); ba.position.set(s * 8.5, 2.6, 19 - i * 16); g.add(ba); }
+        var en = glowSprite(30, eEngTex); en.position.set(s * 5, 0, -36); g.add(en);
+      });
+      var sl = new THREE.Mesh(new THREE.BoxGeometry(11.2, 0.5, 60), sMat(0x300000, 0xff2a1a, 1.1)); sl.position.y = 2.8; sl.scale.set(0.35, 1, 1); g.add(sl); g.add(glowSprite(90, eGlowTex));
+    } else if (type === 'carrier') {
+      m = new THREE.Mesh(new THREE.BoxGeometry(40, 4.2, 96), sMat(0x6a6f7a, 0x202428, 0.3)); g.add(m);
+      var fl = new THREE.Mesh(new THREE.BoxGeometry(46, 1.6, 70), sMat(0x474c57)); fl.position.set(0, 2.4, -6); g.add(fl);
+      for (i = 0; i < 6; i++) { var st = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.5, 8), sMat(0x301a00, 0xffb030, 1.0)); st.position.set(0, 3.4, -30 + i * 12); g.add(st); }
+      var isl = new THREE.Mesh(new THREE.BoxGeometry(6, 14, 18), sMat(0x353a45, 0xff6a40, 0.25)); isl.position.set(18, 9, -10); g.add(isl);
+      var hang = new THREE.Mesh(new THREE.BoxGeometry(30, 3, 50), sMat(0x1a1006, 0xff8a30, 0.9)); hang.position.set(0, -3, 8); g.add(hang);
+      var pr3 = new THREE.Mesh(new THREE.ConeGeometry(14, 16, 4), sMat(0x59606c)); pr3.rotation.x = Math.PI / 2; pr3.rotation.z = Math.PI / 4; pr3.position.z = 56; pr3.scale.set(1.4, 1, 0.3); g.add(pr3);
+      for (i = -1; i <= 1; i += 2) { var en2 = glowSprite(34, eEngTex); en2.position.set(i * 12, 0, -50); g.add(en2); }
+      g.add(glowSprite(120, eGlowTex));
+    } else {
+      return null;
+    }
+    g.visible = false; scene.add(g); return g;
+  }
+  var sDir = new V3(), sWant = new V3(), sTan = new V3();
+  function updateShip(d, dt, dist) {
+    var A = SHIPAI[d.type], T = ETYPE[d.type];
+    if (!d.awake) {
+      d.ang += dt * 0.07;
+      if (d.home) { var B = bodies[d.home]; sWant.set(B.pos.x + Math.cos(d.ang) * d.pr, B.pos.y + Math.sin(d.ang * 2 + d.ph) * 40, B.pos.z + Math.sin(d.ang) * d.pr); if (B.state === 'dead') d.awake = true; }
+      else sWant.set(d.anchor.x + Math.cos(d.ang) * d.pr, d.anchor.y + Math.sin(d.ang * 2 + d.ph) * 30, d.anchor.z + Math.sin(d.ang) * d.pr);
+      d.vel.copy(sWant).sub(d.pos).multiplyScalar(2); d.pos.lerp(sWant, 1 - Math.exp(-dt * 2));
+      if (dist < T.wake) { d.awake = true; d.fireT = Math.max(d.fireT, 1 + Math.random()); }
+    } else {
+      var dir = sDir.copy(G.pos).sub(d.pos).divideScalar(Math.max(dist, 1)), want = sWant.set(0, 0, 0);
+      if (dist > A.far) want.copy(dir).multiplyScalar(A.spd); else if (dist < A.near) want.copy(dir).multiplyScalar(-A.spd * 0.6);
+      sTan.set(-dir.z, 0, dir.x).multiplyScalar(d.side * A.side); want.add(sTan); want.addScaledVector(G.vel, 0.25);
+      d.vel.lerp(want, 1 - Math.exp(-dt * A.k)); d.pos.addScaledVector(d.vel, dt);
+      if (d.charge > 0) { d.charge -= dt; if (d.charge <= 0) { for (var cq = -1; cq <= 1; cq++) eShot(d, 340, cq * 0.05, 2, 9, 72, [1, 0.45, 0.15], 6.5); ring(d.pos, d.r * 1.6, 0xffa060, 0.6); shake = Math.max(shake, 0.25); } }
+      if (d.burst > 0) { d.burstT -= dt; if (d.burstT <= 0) { d.burstT = 0.16; d.burst--; eShot(d, 540, 0, 0, 2.2, 56, [1, 0.3, 0.15], 3.4); } }
+      d.fireT -= dt;
+      if (d.fireT <= 0 && dist > 90) {
+        if (d.type === 'frigate' && dist < 1700) { if (++d.cnt % 3 === 0) { d.fireT = 2.4 + Math.random(); for (var q = -1; q <= 1; q++) eShot(d, 450, q * 0.06, 1, 2.6, 36, [1, 0.45, 0.2], 3.8); } else { d.fireT = 1.9 + Math.random() * 0.8; d.burst = 4; d.burstT = 0; } }
+        else if (d.type === 'warship' && dist < 1900) { if (Math.random() < 0.38) { d.fireT = 3.4 + Math.random() * 1.2; for (var q2 = -2; q2 <= 2; q2++) eShot(d, 380, q2 * 0.07, 1, 3.2, 40, [1, 0.35, 0.6], 4.4); } else { d.fireT = 2.6 + Math.random(); d.burst = 3; d.burstT = 0; } }
+        else if (d.type === 'cruiser' && dist < 2300) {
+          d.fireT = 3.4 + Math.random() * 1.0; for (var q3 = -3; q3 <= 3; q3++) eShot(d, 520, q3 * 0.045, 0, 2.2, 50, [1, 0.3, 0.15], 4.2);
+          if (++d.cnt % 2 === 0) { eShot(d, 340, -0.03, 2, 9, 70, [1, 0.45, 0.15], 6.5); eShot(d, 340, 0.03, 2, 9, 70, [1, 0.45, 0.15], 6.5); }
+        }
+        else if (d.type === 'carrier' && dist < 2700) { d.fireT = 2.2 + Math.random() * 0.9; eShot(d, 480, 0, 0, 2.0, 44, [1, 0.6, 0.2], 4.4); }
+        else if (d.type === 'dread' && dist < 3000) {
+          if (Math.random() < 0.55 && d.charge <= 0) { d.fireT = 5.2 + Math.random() * 1.5; d.charge = 1.1; ring(d.pos, d.r * 2.2, 0xff5a30, 1.1); events.push({ type: 'cannon', name: d.name }); }
+          else { d.fireT = 3.2 + Math.random(); d.burst = 5; d.burstT = 0; }
+        }
+      }
+      if (d.type === 'carrier') {
+        d.spT -= dt; if (d.spT <= 0 && dist < 3200) { d.spT = 9; var made = 0; for (var di = 0; di < drones.length && made < 3; di++) { var f = drones[di]; if (f.alive || !f.reserve || f.guard || f.type !== 'fighter') continue; f.alive = true; f.awake = true; f.hp = ETYPE.fighter.hp; f.max = f.hp; f.fireT = 1.2; f.vel.set(0, 0, 0); f.pos.copy(d.pos).add(tmpA.set((Math.random() - 0.5) * d.r, -6, (Math.random() - 0.5) * d.r)); f.g.position.copy(f.pos); f.g.visible = true; f.g.scale.setScalar(f.sc); made++; ring(f.pos, 50, 0xffaa55, 0.5); } }
+      }
+      if (dist < d.r + 3 && !G.result && d.ramT <= 0) { d.ramT = 1.2; damage(d.type === 'dread' ? 25 : (d.type === 'frigate' ? 10 : 16), 'drone'); burst(G.pos, 12, 24, 1.0, 1, 0.5, 0.3, 0.6); }
+    }
+    ORDER.forEach(function (id) { var P = bodies[id]; if (P.state === 'dead') return; var dd = d.pos.distanceTo(P.pos); if (dd < P.R * 1.12 + d.r) { tmpC.copy(d.pos).sub(P.pos).normalize(); d.pos.copy(P.pos).addScaledVector(tmpC, P.R * 1.12 + d.r); } });
+    d.g.position.copy(d.pos); d.g.scale.setScalar(d.sc * (1 + d.flash * 0.05));
+    if (d.awake) { tmpC.copy(G.pos); d.g.lookAt(tmpC); } else if (d.vel.lengthSq() > 4) { tmpC.copy(d.pos).add(d.vel); d.g.lookAt(tmpC); }
+  }
+
   function buildEnemy(type) {
     if (type.indexOf('g_') === 0) return buildGuard(type);
+    if (type === 'frigate' || type === 'cruiser' || type === 'carrier') return buildShipModel(type);
     var g = new THREE.Group(), m;
     if (type === 'fighter') {
       m = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), eMatRed); m.scale.set(3, 1.6, 4.4); g.add(m);
@@ -627,19 +712,18 @@
     var spec = [], f = { mercury: 2, venus: 3, earth: 3, mars: 3, jupiter: 5, saturn: 4, uranus: 3, neptune: 4, pluto: 2 };
     ORDER.forEach(function (id) { for (var k = 0; k < f[id]; k++) spec.push({ type: 'fighter', home: id, k: k, n: f[id] }); });
     for (var s = 0; s < 12; s++) spec.push({ type: 'shuttle', home: null });
-    ['mars', 'jupiter', 'saturn', 'uranus', 'neptune'].forEach(function (id) { spec.push({ type: 'warship', home: id }); });
-    spec.push({ type: 'warship', home: null }); spec.push({ type: 'warship', home: null });
-    spec.push({ type: 'dread', home: null }); spec.push({ type: 'dread', home: null }); spec.push({ type: 'dread', home: null });
-    for (var r = 0; r < 12; r++) spec.push({ type: 'fighter', home: null, reserve: true });
+    ['mars', 'jupiter', 'saturn'].forEach(function (id) { spec.push({ type: 'warship', home: id }); });
+    [['frigate', 4], ['warship', 2], ['cruiser', 3], ['carrier', 2], ['dread', 3]].forEach(function (p) { for (var q = 0; q < p[1]; q++) spec.push({ type: p[0], home: null }); });
+    for (var r = 0; r < 20; r++) spec.push({ type: 'fighter', home: null, reserve: true });
     for (var r2 = 0; r2 < 4; r2++) spec.push({ type: 'shuttle', home: null, reserve: true });
-    for (var r3 = 0; r3 < 2; r3++) spec.push({ type: 'warship', home: null, reserve: true });
+    for (var r3 = 0; r3 < 3; r3++) spec.push({ type: 'frigate', home: null, reserve: true }); spec.push({ type: 'warship', home: null, reserve: true }); spec.push({ type: 'warship', home: null, reserve: true }); spec.push({ type: 'cruiser', home: null, reserve: true });
     ['g_bulwark', 'g_lancer', 'g_hive', 'g_reaper'].forEach(function (t) { spec.push({ type: t, home: null, reserve: true, guard: true }); });
     return spec;
   })();
   var drones = [], reinT = 14;
   ENEMY_POOL.forEach(function (sp) {
     var T = ETYPE[sp.type];
-    drones.push({ g: buildEnemy(sp.type === 'dread' ? 'warship' : sp.type), sc: T.sc, type: sp.type, name: T.name, r: T.r, max: T.hp, sp: sp, pos: new V3(), vel: new V3(), hp: 0, alive: false, awake: false, home: sp.home, anchor: new V3(), pr: 300, ang: 0, fireT: 0, burst: 0, burstT: 0, side: 1, ph: Math.random() * 6, flash: 0, ramT: 0, charge: 0, reserve: !!sp.reserve, guard: !!sp.guard, st: 0, stT: 3, dashDir: new V3(), ls: 0, lT: 0, aim: new V3(), bdir: new V3(), bhit: false, spT: 6 });
+    drones.push({ g: buildEnemy(sp.type === 'dread' ? 'warship' : sp.type), sc: T.sc, type: sp.type, name: T.name, r: T.r, max: T.hp, sp: sp, pos: new V3(), vel: new V3(), hp: 0, alive: false, awake: false, home: sp.home, anchor: new V3(), pr: 300, ang: 0, fireT: 0, burst: 0, burstT: 0, side: 1, ph: Math.random() * 6, flash: 0, ramT: 0, charge: 0, reserve: !!sp.reserve, guard: !!sp.guard, ship: SHIPS.indexOf(sp.type) >= 0, cnt: 0, st: 0, stT: 3, dashDir: new V3(), ls: 0, lT: 0, aim: new V3(), bdir: new V3(), bhit: false, spT: 6 });
   });
   function randAnchor(out, minFromStart) {
     for (var t = 0; t < 40; t++) {
@@ -661,7 +745,7 @@
         var B = bodies[sp.home]; d.home = sp.home; d.ang = (sp.k !== undefined ? sp.k / sp.n * TAU : Math.random() * TAU);
         d.pr = d.type === 'warship' ? B.R * 1.6 + 420 : B.R * 1.9 + 140; d.pos.set(B.pos.x + Math.cos(d.ang) * d.pr, B.pos.y + (Math.random() - 0.5) * B.R * 0.5, B.pos.z + Math.sin(d.ang) * d.pr);
       } else {
-        d.home = null; randAnchor(d.anchor, d.type === 'dread' ? 7000 : 3000); d.pr = d.type === 'dread' ? 700 : (d.type === 'warship' ? 380 : 260); d.pos.set(d.anchor.x + Math.cos(d.ang) * d.pr, d.anchor.y, d.anchor.z + Math.sin(d.ang) * d.pr);
+        d.home = null; randAnchor(d.anchor, d.ship ? 5500 : 3000); d.pr = d.ship ? 500 : 260; d.pos.set(d.anchor.x + Math.cos(d.ang) * d.pr, d.anchor.y, d.anchor.z + Math.sin(d.ang) * d.pr);
       }
       d.g.position.copy(d.pos); d.g.scale.setScalar(d.sc); d.g.visible = true;
     });
@@ -670,7 +754,7 @@
     var made = 0;
     for (var k = 0; k < n; k++) {
       var free = drones.filter(function (d) { return d.reserve && !d.alive && !d.guard; }); if (!free.length) break;
-      var heavy = G.destroyed >= 2 && Math.random() < 0.22, mid = Math.random() < 0.3, want = heavy ? 'warship' : (mid ? 'shuttle' : 'fighter');
+      var heavy = G.destroyed >= 1 && Math.random() < 0.3, mid = Math.random() < 0.3, want = heavy ? ['frigate', 'frigate', 'warship', 'cruiser'][Math.floor(Math.random() * 4)] : (mid ? 'shuttle' : 'fighter');
       var pick = free.filter(function (d) { return d.type === want; }); if (!pick.length) pick = free; var d = pick[Math.floor(Math.random() * pick.length)], T = ETYPE[d.type];
       d.alive = true; d.awake = true; d.hp = T.hp; d.max = T.hp; d.fireT = 1.6 + Math.random(); d.flash = 0; d.burst = 0; d.charge = 0; d.vel.set(0, 0, 0);
       var vx = Math.random() * 2 - 1, vy = (Math.random() * 2 - 1) * 0.7, vz = Math.random() * 2 - 1, vl = Math.hypot(vx, vy, vz) || 1, rr = 1100 + Math.random() * 500;
@@ -681,10 +765,10 @@
   }
   function killDrone(d, byBomb) {
     var T = ETYPE[d.type]; d.alive = false; d.g.visible = false; G.kills++; award('killScore', T.score); bump(T.bump);
-    var big = d.type === 'warship' || d.type === 'dread' || d.guard, kk = d.type === 'dread' ? 2.4 : (d.guard ? 2 : 1);
+    var big = d.ship || d.guard, kk = d.type === 'dread' ? 3.4 : (d.type === 'carrier' ? 2.4 : (d.type === 'cruiser' ? 2.0 : (d.type === 'warship' ? 1.7 : (d.type === 'frigate' ? 1.2 : (d.guard ? 2 : 1)))));
     burst(d.pos, big ? 70 : 16, (big ? 120 : 36) * kk, big ? 3 : 1.4, 1, 0.6, 0.3, big ? 1.2 : 0.7); fireball(d.pos, (big ? 130 : (d.type === 'shuttle' ? 54 : 34)) * kk, big ? 1.2 : 0.5); ring(d.pos, (big ? 160 : 50) * kk, 0xff7744, big ? 0.9 : 0.5);
     events.push({ type: big ? 'boom' : 'drone', p: d.pos.clone(), name: T.name });
-    if (big) { shake = Math.max(shake, Math.max(0.5, 2 - G.pos.distanceTo(d.pos) / 400)); var dr = d.type === 'dread' || d.guard; G.hull = Math.min(HULL_MAX, G.hull + (dr ? 35 : 12)); G.energy = Math.min(ENERGY_MAX, G.energy + (dr ? 100 : 30)); if (dr) G.bombs += 2; else if (Math.random() < 0.4) G.bombs++; events.push({ type: 'enemyDown', name: T.name }); }
+    if (big) { shake = Math.max(shake, Math.max(0.5, 2 - G.pos.distanceTo(d.pos) / 400)); var dr = d.type === 'dread' || d.type === 'carrier' || d.type === 'cruiser' || d.guard; G.energy = Math.min(ENERGY_MAX, G.energy + (dr ? 100 : 30)); if (dr) G.bombs += 2; else if (Math.random() < 0.4) G.bombs++; events.push({ type: 'enemyDown', name: T.name }); }
     else if (Math.random() < (d.type === 'shuttle' ? 0.4 : 0.18)) { G.energy = Math.min(ENERGY_MAX, G.energy + 12); }
   }
   function hurtEnemy(d, dmg) {
@@ -703,6 +787,7 @@
       if (!d.alive) return; var T = ETYPE[d.type], toP = tmpA.copy(G.pos).sub(d.pos), dist = toP.length(); d.flash = Math.max(0, d.flash - dt * 5);
       if (d.ramT > 0) d.ramT -= dt;
       if (d.guard) { updateGuard(d, dt, dist); return; }
+      if (d.ship) { updateShip(d, dt, dist); return; }
       if (!d.awake) {
         d.ang += dt * (d.type === 'warship' ? 0.08 : 0.22);
         if (d.home) { var B = bodies[d.home]; tmpB.set(B.pos.x + Math.cos(d.ang) * d.pr, B.pos.y + Math.sin(d.ang * 2 + d.ph) * 40, B.pos.z + Math.sin(d.ang) * d.pr); if (B.state === 'dead') d.awake = true; }
@@ -848,7 +933,7 @@
     mercury: { n: 0, pat: 'single' }, venus: { n: 0, pat: 'slow' }, earth: { n: 0, pat: 'single' }, mars: { n: 0, pat: 'burst' }, jupiter: { n: 0, pat: 'spread' },
     saturn: { n: 0, pat: 'burst' }, uranus: { n: 0, pat: 'slow' }, neptune: { n: 0, pat: 'spread' }, pluto: { n: 0, pat: 'single' }
   };
-  function planetHp(R) { return Math.round(5 * (40 + 0.9 * Math.pow(R, 1.4))); }
+  function planetHp(R) { return Math.round(8 * (40 + 0.9 * Math.pow(R, 1.4))); }
   var cores = [];
   var coreGeo = new THREE.OctahedronGeometry(1, 0), coreMat = new THREE.MeshStandardMaterial({ color: 0x4a1408, emissive: 0xff5a1a, emissiveIntensity: 1.5, roughness: 0.4, metalness: 0.5 });
   var coreGlowTex = glowTex([[0, 'rgba(255,230,170,0.95)'], [0.3, 'rgba(255,110,40,0.45)'], [1, 'rgba(255,60,20,0)']]);
@@ -932,7 +1017,7 @@
 
   /* ---------- final boss: guardians first, then the Sun itself ---------- */
   var sunGlow0 = sunGlow.scale.x;
-  var boss = { alive: false, stage: 0, dying: 0, hp: 0, max: 8000, pos: new V3(), ph: 1, t: 0, atk: 0, ringT: 0, spawnT: 0, beamT: 0, beamS: 0, beamT2: 0, beamHit: false, beamDir: new V3(), aim: new V3(), rainT: 0, novaT: 0, novaS: 0, hintT: 0, inv: 0, flash: 0, g: new THREE.Group(), rings: [] };
+  var boss = { alive: false, stage: 0, dying: 0, hp: 0, max: 32000, pos: new V3(), ph: 1, t: 0, atk: 0, ringT: 0, spawnT: 0, beamT: 0, beamS: 0, beamT2: 0, beamHit: false, beamDir: new V3(), aim: new V3(), rainT: 0, novaT: 0, novaS: 0, hintT: 0, inv: 0, flash: 0, g: new THREE.Group(), rings: [] };
   (function () {
     boss.core = { material: { emissiveIntensity: 1 } }; boss.g.visible = false;
   })();
@@ -1121,7 +1206,7 @@
   /* ---------- core update (no rendering) ---------- */
   function damage(amount, kind) {
     if (G.invuln > 0 && kind !== 'bullet' || G.result) return false;
-    amount *= (1 - 0.12 * G.up.hull);
+    amount *= (1 - 0.12 * G.up.hull); if (kind === 'bullet' || kind === 'drone' || kind === 'beam' || kind === 'lightning') amount *= 0.65;
     G.hull -= amount; G.invuln = kind === 'bullet' ? G.invuln : (kind === 'heat' ? 0 : 0.6); G.hits++; G.hitLog[kind] = (G.hitLog[kind] || 0) + 1;
     if (kind !== 'heat') { if (amount >= 8) { if (G.combo >= 4) events.push({ type: 'comboBreak' }); G.combo = 0; G.comboT = 0; } else if (G.comboT > 0) G.comboT = Math.max(0.05, G.comboT - 1.2); }
     shake = Math.max(shake, Math.min(2.2, 0.5 + amount * 0.06)); redVig = Math.max(redVig, kind === 'bullet' ? 0.55 : 1); kick += kind === 'bullet' ? 0.012 : 0.03; events.push({ type: 'hit', kind: kind, amount: amount }); return true;
@@ -1255,16 +1340,16 @@
       G.cdFire = 0.1 * (1 - 0.22 * U.rapid); G.heat += 0.024 * (1 - 0.2 * U.cool) * (1 + 0.3 * U.twin + 0.12 * U.spread); G.shots++; kick += 0.0042; if (G.heat >= 1) { G.heat = 1; G.overheat = true; events.push({ type: 'overheat' }); }
       // convergence point: crosshair line, snapped to a locked target
       var sd = G.lock; tmpB.copy(G.pos).addScaledVector(fwd, 1100);
-      var nSides = U.twin ? 2 : 1, offN = U.spread === 0 ? 1 : (U.spread === 1 ? 3 : 5), shotV = 1500, bcol = U.homing ? [0.75, 0.55, 1.0] : (U.pierce ? [0.5, 1.0, 0.7] : [0.3, 0.85, 1.0]);
+      var nSides = U.twin ? 2 : 1, offN = U.spread === 0 ? 1 : (U.spread === 1 ? 3 : 5), shotV = 3000, bcol = U.homing ? [0.75, 0.55, 1.0] : (U.pierce ? [0.5, 1.0, 0.7] : [0.3, 0.85, 1.0]);
       for (var si = 0; si < nSides; si++) {
         var sgn = U.twin ? (si ? 1 : -1) : (G.side = -G.side);
         tmpA.set(sgn * 1.9, -1.0, -2.4).applyEuler(shipE).add(G.pos); tmpD.copy(G.pos).addScaledVector(fwd, 1100);
-        if (sd) { tmpD.copy(sd.p).addScaledVector(tmpC.copy(sd.v).sub(G.vel), G.pos.distanceTo(sd.p) / 1500 * 0.8); }
+        if (sd) { tmpD.copy(sd.p).addScaledVector(tmpC.copy(sd.v).sub(G.vel), G.pos.distanceTo(sd.p) / 3000 * 0.8); }
         tmpC.copy(tmpD).sub(tmpA).normalize(); tmpE.crossVectors(tmpC, UPV).normalize();
         for (var oi = 0; oi < offN; oi++) {
           var off = (oi - (offN - 1) / 2) * 0.05; tmpB.copy(tmpC).addScaledVector(tmpE, off).normalize().multiplyScalar(shotV).add(G.vel);
           tmpB.x += (Math.random() - 0.5) * 4; tmpB.y += (Math.random() - 0.5) * 4; tmpB.z += (Math.random() - 0.5) * 4;
-          spawnBullet(true, tmpA, tmpB, 1.7, { pierce: U.pierce ? 2 : 0, home: U.homing, col: bcol });
+          spawnBullet(true, tmpA, tmpB, 4.6, { pierce: U.pierce ? 2 : 0, home: U.homing, col: bcol });
         }
         emit(tmpA.x, tmpA.y, tmpA.z, fwd.x * 40, fwd.y * 40, fwd.z * 40, 0.08, 1.3, 0.6, 0.95, 1);
       }
@@ -1279,7 +1364,7 @@
       bm2.life -= dt; var steps = Math.max(1, Math.ceil(bm2.vel.length() * dt / 30)), sdt = dt / steps, exploded = false;
       for (var s = 0; s < steps && !exploded; s++) {
         bm2.pos.addScaledVector(bm2.vel, sdt);
-        ORDER.forEach(function (id) { var B = bodies[id]; if (!exploded && B.state === 'alive' && bm2.pos.distanceTo(B.pos) < B.R) exploded = true; });
+        ORDER.forEach(function (id) { var B = bodies[id]; if (!exploded && B.state === 'alive' && bm2.pos.distanceTo(B.pos) < B.R * PHIT) exploded = true; });
         if (!exploded) drones.forEach(function (d) { if (!exploded && d.alive && d.pos.distanceTo(bm2.pos) < d.r + 2) exploded = true; });
         if (!exploded) cores.forEach(function (c) { if (!exploded && c.alive && c.pos.distanceTo(bm2.pos) < c.cs * 2) exploded = true; });
         if (!exploded && boss.alive && boss.pos.distanceTo(bm2.pos) < SUN_R) exploded = true;
@@ -1303,7 +1388,7 @@
         bPos[i * 3] += vx * h; bPos[i * 3 + 1] += vy * h; bPos[i * 3 + 2] += vz * h; tmpA.set(bPos[i * 3], bPos[i * 3 + 1], bPos[i * 3 + 2]);
         if (isP) {
           for (var ni = 0; ni < cores.length && !dead; ni++) { var cc = cores[ni]; if (cc.alive && cc.pos.distanceTo(tmpA) < cc.cs * 2.1) { cc.hp -= 12; cc.flash = 1; G.shotsHit++; crossHit = 0.12; if (bPierce[i] > 0) bPierce[i]--; else dead = true; burst(tmpA, 4, 26, 1.2, 1, 0.6, 0.3, 0.3); events.push({ type: 'tick' }); if (cc.hp <= 0) killCore(cc); } }
-          for (var oi2 = 0; oi2 < ORDER.length && !dead; oi2++) { var B = bodies[ORDER[oi2]]; if (B.state === 'dead') continue; if (tmpA.distanceTo(B.pos) < B.R) { dead = true; if (B.state === 'alive') { hitPlanetUnused(B, 11 * (1 + 0.1 * (U.rapid || 0)), tmpA); G.shotsHit++; crossHit = 0.12; award('proxScore', 1); } burst(tmpA, 3, 26, Math.max(1.5, B.R * 0.01), 1, 0.6, 0.35, 0.3); events.push({ type: 'phit' }); } }
+          for (var oi2 = 0; oi2 < ORDER.length && !dead; oi2++) { var B = bodies[ORDER[oi2]]; if (B.state === 'dead') continue; if (tmpA.distanceTo(B.pos) < B.R * PHIT) { dead = true; if (B.state === 'alive') { hitPlanetUnused(B, 11 * (1 + 0.1 * (U.rapid || 0)), tmpA); G.shotsHit++; crossHit = 0.12; award('proxScore', 1); } burst(tmpA, 3, 26, Math.max(1.5, B.R * 0.01), 1, 0.6, 0.35, 0.3); events.push({ type: 'phit' }); } }
           for (var di = 0; di < drones.length && !dead; di++) { var d = drones[di]; if (d.alive && d.pos.distanceTo(tmpA) < d.r) { G.shotsHit++; crossHit = 0.12; if (bPierce[i] > 0) bPierce[i]--; else dead = true; burst(tmpA, 4, 20, 0.8, 1, 0.6, 0.3, 0.3); events.push({ type: 'tick' }); hurtEnemy(d, 11); } }
           if (!dead && boss.alive && boss.pos.distanceTo(tmpA) < SUN_R) { dead = true; if (bossHit(11)) { burst(tmpA, 4, 40, 2, 1, 0.6, 0.25, 0.4); events.push({ type: 'tick' }); } else burst(tmpA, 3, 30, 2, 0.6, 0.8, 1, 0.3); }
           if (!dead && (fieldHit(belt, tmpA, 2.5) || fieldHit(rings, tmpA, 2.5))) { if (bPierce[i] > 0) bPierce[i]--; else dead = true; burst(tmpA, 4, 16, 0.8, 0.8, 0.72, 0.6, 0.3); G.shotsHit++; crossHit = 0.1; }
@@ -1352,6 +1437,7 @@
 
   /* ---------- input ---------- */
   var accDx = 0, accDy = 0, usePL = false;
+  var scopeShown = false, scopeEl = document.createElement('div'); scopeEl.id = 'scope'; scopeEl.innerHTML = '<svg viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet"><circle cx="100" cy="100" r="98" fill="none" stroke="rgba(127,227,255,.55)" stroke-width="1.2"/><circle cx="100" cy="100" r="46" fill="none" stroke="rgba(127,227,255,.35)" stroke-width="0.8"/><path d="M100 6V88M100 112V194M6 100H88M112 100H194" stroke="rgba(127,227,255,.9)" stroke-width="1.1"/><path d="M100 58V70M100 130V142M58 100H70M130 100H142M80 100h4M116 100h4M100 80v4M100 116v4" stroke="rgba(127,227,255,.7)" stroke-width="1"/><circle cx="100" cy="100" r="1.6" fill="#ff5a4d"/></svg><b>放大 ×' + (FPFOV / SCOPE_FOV).toFixed(1) + '</b>'; document.body.appendChild(scopeEl);
   var keys = {}, mouseNDC = { x: 0, y: 0 }, mouseSeen = false, mouseL = false, mouseR = false, touchMode = false, touchStick = null, btnBoost = false, btnFire = false, btnThrust = false, btnBrake = false, bombReq = false;
   function setTouch(on) { if (touchMode === on) return; touchMode = on; document.body.classList.toggle('touch', on); }
   if (window.matchMedia && matchMedia('(pointer: coarse)').matches) setTouch(true);
@@ -1380,7 +1466,7 @@
     } else {
       setTouch(false);
       if (mode === 'play' && !usePL) tryLock();
-      if (e.button === 0) mouseL = true; else if (e.button === 2) { mouseR = true; bombReq = true; }
+      if (e.button === 0) mouseL = true; else if (e.button === 2) { mouseR = true; }
       try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
     }
   });
@@ -1415,7 +1501,7 @@
   function gatherInput() {
     var yaw = 0, pitch = 0, dyaw = 0, dpitch = 0;
     if (touchStick) { yaw += touchStick.dx; pitch += -touchStick.dy; }
-    if (usePL) { dyaw = clampN(-accDx * MSENS, -0.45, 0.45); dpitch = clampN(-accDy * MSENS * (invert ? -1 : 1), -0.45, 0.45); accDx = accDy = 0; }
+    if (usePL) { var msk = (mouseR && mode === 'play') ? SCOPE_FOV / FPFOV : 1; dyaw = clampN(-accDx * MSENS * msk, -0.45, 0.45); dpitch = clampN(-accDy * MSENS * msk * (invert ? -1 : 1), -0.45, 0.45); accDx = accDy = 0; }
     else if (mouseSeen && !touchMode) { yaw += dz(mouseNDC.x) * 0.6; pitch += -dz(mouseNDC.y) * 0.6; }
     yaw = Math.max(-1, Math.min(1, yaw)) * SENS; pitch = Math.max(-1, Math.min(1, pitch)) * SENS; if (invert) pitch = -pitch; dyaw *= SENS; dpitch *= SENS;
     var bomb = bombReq; bombReq = false;
@@ -1488,7 +1574,7 @@
       if (e.type === 'shot') { var now = performance.now(); if (now - shotSfxT > 70) { shotSfxT = now; sfx.shot(); } }
       else if (e.type === 'phit') { /* quiet */ }
       else if (e.type === 'tick') { var tn = performance.now(); if (tn - tickT > 45) { tickT = tn; sfx.tick(); } }
-      else if (e.type === 'enemyDown') { news('擊沉' + e.name + '！回復船體與能量', 'good'); }
+      else if (e.type === 'enemyDown') { news('擊沉' + e.name + '！補充能量', 'good'); }
       else if (e.type === 'cannon') { news(e.name + ' 正在裝填火炮！快閃避！', 'warn'); }
       else if (e.type === 'reinforce') { news('敵機來襲！注意四周！', 'warn'); }
       else if (e.type === 'core') { sfx.pop(); news(PL[e.id].name + ' 核心被擊毀，還剩 ' + e.left + ' 個', 'good'); }
@@ -1552,7 +1638,8 @@
       fovT = FPFOV + 22 * sp + (G.braking ? -6 : 0) + 6 * G.prox + kick * 40 - (mode === 'ready' ? 18 * Math.max(0, Math.min(1, G.readyT / 3.4)) : 0);
       shipG.visible = false;
     }
-    camera.fov += (fovT - camera.fov) * (1 - Math.exp(-rdt * 6)); camera.updateProjectionMatrix();
+    var scoped = !!(G && mode === 'play' && mouseR && !touchMode && !G.result); if (scoped) fovT = SCOPE_FOV; if (scoped !== scopeShown) { scopeShown = scoped; document.body.classList.toggle('scoped', scoped); }
+    camera.fov += (fovT - camera.fov) * (1 - Math.exp(-rdt * (scoped ? 14 : 7))); camera.updateProjectionMatrix();
     pMat.uniforms.uScale.value = Hh * DPR / (2 * Math.tan(camera.fov * Math.PI / 360));
     sky.position.copy(camera.position);
   }
@@ -1601,7 +1688,7 @@
       if (tg) { mctx.strokeStyle = '#fff'; mctx.lineWidth = 1.3 * DPR; mctx.beginPath(); mctx.arc(p[0], p[1], r + 2.5 * DPR, 0, TAU); mctx.stroke(); }
       if (B.hp < B.maxHp) { mctx.strokeStyle = '#ff6a4a'; mctx.lineWidth = 1.5 * DPR; mctx.beginPath(); mctx.arc(p[0], p[1], r + 1.2 * DPR, -Math.PI / 2, -Math.PI / 2 + TAU * (1 - B.hp / B.maxHp)); mctx.stroke(); }
     });
-    if (G && mode !== 'menu') { mctx.fillStyle = '#ff5a4d'; drones.forEach(function (d) { if (!d.alive) return; var p = P(d.pos.x, d.pos.z), z = (d.type === 'dread' ? 5 : (d.type === 'warship' ? 3.2 : (d.type === 'shuttle' ? 2.4 : 1.8))) * DPR; mctx.globalAlpha = d.awake ? 1 : 0.55; mctx.fillRect(p[0] - z / 2, p[1] - z / 2, z, z); }); mctx.globalAlpha = 1; }
+    if (G && mode !== 'menu') { mctx.fillStyle = '#ff5a4d'; drones.forEach(function (d) { if (!d.alive) return; var p = P(d.pos.x, d.pos.z), z = (d.type === 'dread' ? 5.5 : (d.ship ? 3.6 : (d.type === 'shuttle' ? 2.4 : 1.8))) * DPR; mctx.globalAlpha = d.awake ? 1 : 0.55; mctx.fillRect(p[0] - z / 2, p[1] - z / 2, z, z); }); mctx.globalAlpha = 1; }
     if (boss.alive && G && mode !== 'menu') { var bp = P(boss.pos.x, boss.pos.z); mctx.fillStyle = '#ff8a30'; mctx.beginPath(); mctx.arc(bp[0], bp[1], 4 * DPR, 0, TAU); mctx.fill(); }
     var pos = G && mode !== 'menu' ? G.pos : bodies.earth.pos, yaw = G ? G.yaw : 0, sp = P(pos.x, pos.z);
     mctx.save(); mctx.translate(sp[0], sp[1]); mctx.rotate(-yaw + Math.PI); mctx.fillStyle = '#fff'; mctx.shadowColor = '#7fe3ff'; mctx.shadowBlur = 6 * DPR;
@@ -1719,7 +1806,7 @@
       }
       if (!aim) return { yaw: 0, pitch: 0, thrust: 0 };
       var tv = vel || ZV, d0 = aim.clone().sub(G.pos), dist0 = d0.length(), u = d0.clone().multiplyScalar(1 / Math.max(dist0, 1));
-      var tl = Math.min(dist0 / 1500, 2.5), ap = aim.clone().addScaledVector(tv, tl).addScaledVector(G.vel, -tl);
+      var tl = Math.min(dist0 / 3000, 2.5), ap = aim.clone().addScaledVector(tv, tl).addScaledVector(G.vel, -tl);
       var d = ap.sub(G.pos), dist = d.length(), wy = Math.atan2(-d.x, -d.z), dy = wy - G.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
       var wp = Math.atan2(d.y, Math.hypot(d.x, d.z)), dp = wp - G.pitch, tol = Math.max(0.05, Math.atan(R0 * 0.8 / Math.max(dist, 1))), aligned = Math.abs(dy) < tol && Math.abs(dp) < tol, surf = dist0 - R0;
       var closing = -(G.vel.clone().sub(tv)).dot(u), desired = surf > stand ? Math.min(420, Math.sqrt(2 * 110 * (surf - stand))) : -Math.min(60, (stand - surf) * 0.2);
