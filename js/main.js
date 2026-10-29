@@ -1594,6 +1594,28 @@
 
   /* ---------- input ---------- */
   var accDx = 0, accDy = 0, usePL = false;
+  var uiS = 1, touchScope = false, uiT = 1;
+  function isScoped() { return !!(G && mode === 'play' && (touchMode ? touchScope : mouseR) && !G.result); }
+  function updateUiScale() {
+    var w = window.innerWidth, h = window.innerHeight, s = Math.max(0.7, Math.min(1.2, Math.min(w / 1700, h / 900))), t = Math.max(0.8, Math.min(1.25, Math.min(w / 900, h / 520)));
+    if (touchMode) s = (w < 700) ? Math.max(0.85, Math.min(1.05, w / 430)) : Math.max(s, 0.85);
+    uiS = s; uiT = t; var st = document.documentElement.style; st.setProperty('--s', s.toFixed(3)); st.setProperty('--ts', t.toFixed(3));
+    document.body.classList.toggle('narrow', w < 700); document.body.classList.toggle('short', h < 520);
+  }
+  window.addEventListener('resize', updateUiScale); window.addEventListener('orientationchange', function () { setTimeout(updateUiScale, 200); }); updateUiScale();
+  (function () {
+    var vm = document.querySelector('meta[name=viewport]'); if (vm && vm.content.indexOf('user-scalable') < 0) vm.content += ', maximum-scale=1, user-scalable=no';
+    var kh = document.getElementById('keys'); if (kh) kh.textContent = kh.textContent.replace('Ctrl 下降', 'C 下降');
+  })();
+  function fsLock() {
+    var fe = document.fullscreenElement || document.webkitFullscreenElement;
+    try { if (navigator.keyboard) { if (fe && navigator.keyboard.lock) navigator.keyboard.lock(['Escape']).catch(function () {}); else if (!fe && navigator.keyboard.unlock) navigator.keyboard.unlock(); } } catch (_) {}
+    try { if (fe && touchMode && screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(function () {}); } catch (_) {}
+    setTimeout(updateUiScale, 120);
+  }
+  document.addEventListener('fullscreenchange', fsLock); document.addEventListener('webkitfullscreenchange', fsLock);
+  var scopeBtn = document.createElement('button'); scopeBtn.id = 'bScope'; scopeBtn.type = 'button'; scopeBtn.className = 'tbtn'; scopeBtn.textContent = '狙擊'; scopeBtn.setAttribute('aria-label', '狙擊鏡');
+  scopeBtn.addEventListener('pointerdown', function (e) { e.preventDefault(); touchScope = !touchScope; scopeBtn.classList.toggle('on', touchScope); }); document.body.appendChild(scopeBtn);
   var scopeShown = false, scopeEl = document.createElement('div'); scopeEl.id = 'scope'; scopeEl.innerHTML = '<svg viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet"><circle cx="100" cy="100" r="98" fill="none" stroke="rgba(127,227,255,.55)" stroke-width="1.2"/><circle cx="100" cy="100" r="46" fill="none" stroke="rgba(127,227,255,.35)" stroke-width="0.8"/><path d="M100 6V88M100 112V194M6 100H88M112 100H194" stroke="rgba(127,227,255,.9)" stroke-width="1.1"/><path d="M100 58V70M100 130V142M58 100H70M130 100H142M80 100h4M116 100h4M100 80v4M100 116v4" stroke="rgba(127,227,255,.7)" stroke-width="1"/><circle cx="100" cy="100" r="1.6" fill="#ff5a4d"/></svg><b>放大 ×' + (FPFOV / SCOPE_FOV).toFixed(1) + '</b>'; document.body.appendChild(scopeEl);
   var hpListEl = document.createElement('div'); hpListEl.id = 'hpList'; hpListEl.setAttribute('aria-label', '太陽與行星血量');
   var hpRows = [];
@@ -1619,9 +1641,10 @@
   }
   (function () { var pl = document.querySelector('#ovPause .lede'); if (pl && !document.getElementById('pauseTip')) { var tip = document.createElement('p'); tip.id = 'pauseTip'; tip.className = 'lede'; tip.innerHTML = '\uD83D\uDCA1建議攻打順序：' + ['水星', '火星', '地球', '金星', '冥王星', '海王星', '天王星', '土星', '木星'].map(function (n, k) { return '<span style=\"white-space:nowrap\">' + n + (k < 8 ? ' -\u2060>' : '') + '</span>'; }).join(' '); pl.insertAdjacentElement('afterend', tip); } })();
   var keys = {}, mouseNDC = { x: 0, y: 0 }, mouseSeen = false, mouseL = false, mouseR = false, touchMode = false, touchStick = null, btnBoost = false, btnFire = false, btnThrust = false, btnBrake = false, bombReq = false;
-  function setTouch(on) { if (touchMode === on) return; touchMode = on; document.body.classList.toggle('touch', on); }
+  function setTouch(on) { if (touchMode === on) return; touchMode = on; document.body.classList.toggle('touch', on); updateUiScale(); }
   if (window.matchMedia && matchMedia('(pointer: coarse)').matches) setTouch(true);
   window.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && (mode === 'play' || mode === 'pause')) e.preventDefault();
     if (e.repeat) { if (e.code === 'Space') e.preventDefault(); return; }
     keys[e.code] = true; if (e.code === 'Space' || e.code.indexOf('Arrow') === 0) e.preventDefault();
     if (mode === 'pick') { var pk = e.code === 'Digit1' || e.code === 'Numpad1' ? 0 : (e.code === 'Digit2' || e.code === 'Numpad2' ? 1 : (e.code === 'Digit3' || e.code === 'Numpad3' ? 2 : -1)); if (pk >= 0) selectUpgrade(pk); else if ((e.code === 'Enter' || e.code === 'NumpadEnter') && pickSel >= 0) chooseUpgrade(pickSel); return; }
@@ -1682,22 +1705,22 @@
   function dz(v) { var a = Math.abs(v); if (a < 0.07) return 0; return Math.sign(v) * Math.pow((a - 0.07) / 0.93, 1.25); }
   function gatherInput() {
     var yaw = 0, pitch = 0, dyaw = 0, dpitch = 0;
-    if (touchStick) { yaw += touchStick.dx; pitch += -touchStick.dy; }
-    if (usePL) { var msk = (mouseR && mode === 'play') ? SCOPE_FOV / FPFOV : 1; dyaw = clampN(-accDx * MSENS * msk, -0.45, 0.45); dpitch = clampN(-accDy * MSENS * msk * (invert ? -1 : 1), -0.45, 0.45); accDx = accDy = 0; }
+    if (touchStick) { var tmk = isScoped() ? SCOPE_FOV / FPFOV : 1; yaw += touchStick.dx * tmk; pitch += -touchStick.dy * tmk; }
+    if (usePL) { var msk = isScoped() ? SCOPE_FOV / FPFOV : 1; dyaw = clampN(-accDx * MSENS * msk, -0.45, 0.45); dpitch = clampN(-accDy * MSENS * msk * (invert ? -1 : 1), -0.45, 0.45); accDx = accDy = 0; }
     else if (mouseSeen && !touchMode) { yaw += dz(mouseNDC.x) * 0.6; pitch += -dz(mouseNDC.y) * 0.6; }
     yaw = Math.max(-1, Math.min(1, yaw)) * SENS; pitch = Math.max(-1, Math.min(1, pitch)) * SENS; if (invert) pitch = -pitch; dyaw *= SENS; dpitch *= SENS;
     var bomb = bombReq; bombReq = false;
-    return { yaw: yaw, pitch: pitch, dyaw: dyaw, dpitch: dpitch, thrust: touchMode ? ((btnThrust ? 1 : 0) - (btnBrake ? 1 : 0)) : (((keys.KeyW || keys.ArrowUp) ? 1 : 0) - ((keys.KeyS || keys.ArrowDown) ? 1 : 0)), strafe: ((keys.KeyD || keys.ArrowRight) ? 1 : 0) - ((keys.KeyA || keys.ArrowLeft) ? 1 : 0), lift: (keys.Space ? 1 : 0) - ((keys.KeyC || keys.ControlLeft) ? 1 : 0), boost: !!(keys.ShiftLeft || keys.ShiftRight || btnBoost), brake: false, fire: !!(mouseL || btnFire || keys.KeyJ), bomb: bomb };
+    return { yaw: yaw, pitch: pitch, dyaw: dyaw, dpitch: dpitch, thrust: touchMode ? ((btnThrust ? 1 : 0) - (btnBrake ? 1 : 0)) : (((keys.KeyW || keys.ArrowUp) ? 1 : 0) - ((keys.KeyS || keys.ArrowDown) ? 1 : 0)), strafe: ((keys.KeyD || keys.ArrowRight) ? 1 : 0) - ((keys.KeyA || keys.ArrowLeft) ? 1 : 0), lift: (keys.Space ? 1 : 0) - ((keys.KeyC || keys.KeyQ) ? 1 : 0), boost: !!(keys.ShiftLeft || keys.ShiftRight || btnBoost), brake: false, fire: !!(mouseL || btnFire || keys.KeyJ), bomb: bomb };
   }
 
   function fmtT(t) { var m = Math.floor(t / 60), s = Math.floor(t % 60); return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s; }
   function fmtN(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function startGame() {
-    audioInit(); newGame(); setMode('ready'); tryLock(); accDx = accDy = 0; G.readyT = 3.4; newsEl.innerHTML = ''; keys = {}; mouseL = mouseR = false; touchStick = null; stickEl.style.display = 'none'; bombReq = false;
+    audioInit(); newGame(); setMode('ready'); tryLock(); accDx = accDy = 0; G.readyT = 3.4; touchScope = false; scopeBtn.classList.remove('on'); newsEl.innerHTML = ''; keys = {}; mouseL = mouseR = false; touchStick = null; stickEl.style.display = 'none'; bombReq = false;
     news('任務：擊碎九顆行星。行星越大血量越多，而且一直在繞太陽運行。紅色血條的是敵艦，他們會攻擊你。', null, true); news('沒有自動前進：按 W 推進，S 煞車。引力會拉著你漂移，小心別被行星或太陽吸進去。', null, true);
   }
   function pauseGame() { if (mode !== 'play') return; setMode('pause'); try { if (document.exitPointerLock) document.exitPointerLock(); } catch (_) {} }
-  function resumeGame() { if (mode !== 'pause') return; setMode('play'); keys = {}; mouseL = mouseR = false; tryLock(); accDx = accDy = 0; }
+  function resumeGame() { if (mode !== 'pause') return; setMode('play'); touchScope = false; scopeBtn.classList.remove('on'); keys = {}; mouseL = mouseR = false; tryLock(); accDx = accDy = 0; }
   function totalScore() {
     var s = G.planetScore + G.killScore + G.rockScore + G.orbScore + G.proxScore + G.bossScore;
     if (G.result === 'win') s += 2000 + Math.round(G.hull) * 15 + Math.max(0, 300 - G.t) * 10;
@@ -1814,13 +1837,13 @@
       /* first-person cockpit camera */
       shipE.set(G.pitch, G.yaw, G.bank * 0.45, 'YXZ'); kick *= Math.exp(-rdt * 10);
       tmpA.set(0, 0.8, -0.9).applyEuler(shipE); camera.position.copy(G.pos).add(tmpA);
-      var sp = Math.max(0, (G.speed - SPEED_BASE) / (SPEED_BOOST - SPEED_BASE)), scopedNow = !!(G && mode === 'play' && mouseR && !touchMode && !G.result), sk = shake > 0.01 ? shake * (scopedNow ? 0.12 : 0.55) : 0, kk2 = scopedNow ? 0.2 : 0.8, jx = 0, jy = 0, jz = 0;
+      var sp = Math.max(0, (G.speed - SPEED_BASE) / (SPEED_BOOST - SPEED_BASE)), scopedNow = isScoped(), sk = shake > 0.01 ? shake * (scopedNow ? 0.12 : 0.55) : 0, kk2 = scopedNow ? 0.2 : 0.8, jx = 0, jy = 0, jz = 0;
       if (sk) { camera.position.x += (Math.random() - 0.5) * sk * 0.9; camera.position.y += (Math.random() - 0.5) * sk * 0.9; camera.position.z += (Math.random() - 0.5) * sk * 0.9; jx = (Math.random() - 0.5) * sk * 0.018; jy = (Math.random() - 0.5) * sk * 0.018; jz = (Math.random() - 0.5) * sk * 0.03; shake *= Math.exp(-rdt * 6); } else shake = 0;
       camera.rotation.order = 'YXZ'; camera.rotation.set(G.pitch + kick * kk2 + jx, G.yaw + jy, G.bank * 0.45 + jz);
       fovT = FPFOV + 22 * sp + (G.braking ? -6 : 0) + 6 * G.prox + kick * 40 * kk2 - (mode === 'ready' ? 18 * Math.max(0, Math.min(1, G.readyT / 3.4)) : 0);
       shipG.visible = false;
     }
-    var scoped = !!(G && mode === 'play' && mouseR && !touchMode && !G.result); if (scoped) fovT = SCOPE_FOV; if (scoped !== scopeShown) { scopeShown = scoped; document.body.classList.toggle('scoped', scoped); }
+    var scoped = isScoped(); if (!scoped && scopeBtn.classList.contains('on') && !touchScope) scopeBtn.classList.remove('on'); if (scoped) fovT = SCOPE_FOV; if (scoped !== scopeShown) { scopeShown = scoped; document.body.classList.toggle('scoped', scoped); }
     camera.fov += (fovT - camera.fov) * (1 - Math.exp(-rdt * (scoped ? 14 : 7))); camera.updateProjectionMatrix();
     pMat.uniforms.uScale.value = Hh * DPR / (2 * Math.tan(camera.fov * Math.PI / 360));
     sky.position.copy(camera.position);
@@ -1889,14 +1912,14 @@
       mk.strokeStyle = col; mk.lineWidth = (lock ? 2.4 : 1.4) * DPR; mk.globalAlpha = lock ? 1 : 0.7; mk.beginPath();
       mk.moveTo(x - half, y - half + c); mk.lineTo(x - half, y - half); mk.lineTo(x - half + c, y - half); mk.moveTo(x + half - c, y - half); mk.lineTo(x + half, y - half); mk.lineTo(x + half, y - half + c);
       mk.moveTo(x + half, y + half - c); mk.lineTo(x + half, y + half); mk.lineTo(x + half - c, y + half); mk.moveTo(x - half + c, y + half); mk.lineTo(x - half, y + half); mk.lineTo(x - half, y + half - c); mk.stroke();
-      if (lock || lbl) { mk.fillStyle = col; mk.globalAlpha = 0.95; mk.font = (11 * DPR) + 'px IBM Plex Mono, monospace'; mk.textAlign = 'center'; mk.fillText((lbl ? lbl + ' ' : '') + fmtN(dist), x, y + half + 13 * DPR); }
+      if (lock || lbl) { mk.fillStyle = col; mk.globalAlpha = 0.95; mk.font = (11 * DPR * uiS) + 'px IBM Plex Mono, monospace'; mk.textAlign = 'center'; mk.fillText((lbl ? lbl + ' ' : '') + fmtN(dist), x, y + half + 13 * DPR); }
       return [x, y, half];
     }
     function hpBar(sc, d) {
-      if (!sc) return; var bw = Math.max(40 * DPR, Math.min(sc[2] * 2, 120 * DPR)), bh = 5 * DPR, bx = sc[0] - bw / 2, by = sc[1] - sc[2] - 12 * DPR, fr = Math.max(0, d.hp / d.max);
+      if (!sc) return; var bw = Math.max(40 * DPR * uiS, Math.min(sc[2] * 2, 120 * DPR * uiS)), bh = 5 * DPR * uiS, bx = sc[0] - bw / 2, by = sc[1] - sc[2] - 12 * DPR * uiS, fr = Math.max(0, d.hp / d.max);
       mk.globalAlpha = 0.95; mk.fillStyle = 'rgba(25,0,0,0.78)'; mk.fillRect(bx - DPR, by - DPR, bw + 2 * DPR, bh + 2 * DPR); mk.fillStyle = fr < 0.3 ? '#ff1f1f' : '#ff4a3a'; mk.fillRect(bx, by, bw * fr, bh);
       mk.strokeStyle = 'rgba(255,120,100,0.8)'; mk.lineWidth = DPR; mk.strokeRect(bx - DPR, by - DPR, bw + 2 * DPR, bh + 2 * DPR);
-      mk.fillStyle = '#ff9a8a'; mk.font = (10 * DPR) + 'px Noto Sans TC, sans-serif'; mk.textAlign = 'center'; mk.fillText(d.name, sc[0], by - 4 * DPR);
+      mk.fillStyle = '#ff9a8a'; mk.font = (10 * DPR * uiS) + 'px Noto Sans TC, sans-serif'; mk.textAlign = 'center'; mk.fillText(d.name, sc[0], by - 4 * DPR * uiS);
     }
     for (var i = 0; i < drones.length; i++) { var d = drones[i]; if (d.alive && G.pos.distanceTo(d.pos) < 7000) { var sc = mark(d.pos, d.r, '#ff6a52', d); hpBar(sc, d); } }
     for (var j = 0; j < cores.length; j++) { var nd = cores[j]; if (nd.alive && nd.facing && G.pos.distanceTo(nd.pos) < 3500) mark(nd.pos, nd.cs * 1.6, '#ffb347', nd); }
