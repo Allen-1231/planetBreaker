@@ -151,6 +151,20 @@
   #ovPause { align-items: center; justify-content: center; padding-block: 24px; background: radial-gradient(ellipse at center, rgba(3, 5, 10, 0.82) 0, rgba(3, 5, 10, 0.62) 70%, rgba(3, 5, 10, 0.45) 100%); }
   #ovPause .card { margin: auto; align-items: center; text-align: center; }
   #ovPause .actions { justify-content: center; }
+  :root { --s: 1; --ts: 1; }
+  html, body { overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+  body.play, canvas { touch-action: none; }
+  .overlay { touch-action: pan-y; }
+  .hud, #news, #cap, #count, #hpList, #keys, #ovMenu .card, #ovPause .card, #ovEnd .card, .pickc { zoom: var(--s); }
+  .tbtn { zoom: var(--ts); }
+  #bScope { right: calc(max(18px, env(safe-area-inset-right, 0px)) + 108px); bottom: calc(max(22px, env(safe-area-inset-bottom, 0px)) + 164px); width: 58px; height: 58px; font-size: 12px; border-color: #b48cff; }
+  #bScope.on { background: rgba(180, 140, 255, 0.4); }
+  body.touch.play #bScope { display: grid; }
+  body.touch.pause #hpList { display: flex; }
+  body.touch.play #hpList { display: none; }
+  @media (orientation: portrait) { body.touch.play::after { content: "請將手機橫放，操作更順手"; position: fixed; z-index: 4; left: 50%; top: 46%; transform: translateX(-50%); padding: 8px 14px; border-radius: 8px; background: rgba(8, 20, 30, 0.8); border: 1px solid var(--accent); color: var(--accent); font-size: 13px; pointer-events: none; animation: keysOut 1s ease-in 6s forwards; } }
+  body.touch .tools { flex-wrap: wrap; justify-content: flex-end; max-width: 150px; }
+  body.short .hud-l { gap: 3px; } body.short #alt, body.short .eyebrow { display: none; } body.short #news { top: 120px; }
   #pauseTip { max-width: min(60ch, 92vw); text-wrap: balance; font-size: 13.5px; line-height: 1.7; color: var(--accent); }
   #hpList { position: fixed; z-index: 3; left: max(16px, env(safe-area-inset-left, 0px)); bottom: max(30px, calc(env(safe-area-inset-bottom, 0px) + 26px)); width: min(180px, 40vw); display: none; flex-direction: column; gap: 3px; pointer-events: none; text-shadow: 0 1px 3px #000; }
   body.play #hpList, body.pause #hpList, body.pick #hpList { display: flex; }
