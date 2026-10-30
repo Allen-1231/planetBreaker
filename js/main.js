@@ -1664,6 +1664,22 @@
     uiS = s; uiT = t; var st = document.documentElement.style; st.setProperty('--s', s.toFixed(3)); st.setProperty('--ts', t.toFixed(3));
     document.body.classList.toggle('narrow', w < 700); document.body.classList.toggle('short', h < 520);
   }
+
+  /* fit each overlay panel (menu / pause / pick / end) to the actual viewport */
+  var fitKey = '';
+  function fitOverlays() {
+    var w = window.innerWidth, h = window.innerHeight;
+    ['ovMenu', 'ovPause', 'ovPick', 'ovEnd'].forEach(function (id) {
+      var ov = document.getElementById(id); if (!ov || ov.hidden) return;
+      var el = id === 'ovPick' ? ov.querySelector('.pickc') : ov.querySelector('.card'); if (!el) return;
+      var key = id + w + 'x' + h + ':' + el.innerHTML.length + (touchMode ? 't' : ''); if (el._fk === key) return; el._fk = key;
+      var stack = id === 'ovPick' && (w < 680 || h > w * 1.05), Wb = id === 'ovPick' ? (stack ? 400 : 920) : (w < 680 ? 340 : 580); el.classList.toggle('stack', stack);
+      el.style.zoom = 1; el.style.width = Wb + 'px'; el.style.maxWidth = 'none';
+      var H = el.offsetHeight || 1, z = Math.min(w * 0.94 / Wb, h * 0.9 / H); z = Math.max(0.45, Math.min(id === 'ovPick' ? 1.5 : 1.7, z));
+      el.style.zoom = z.toFixed(3);
+    });
+  }
+  window.addEventListener('resize', fitOverlays); window.addEventListener('orientationchange', function () { setTimeout(fitOverlays, 250); }); setInterval(fitOverlays, 200);
   window.addEventListener('resize', updateUiScale); window.addEventListener('orientationchange', function () { setTimeout(updateUiScale, 200); }); updateUiScale();
   (function () {
     var vm = document.querySelector('meta[name=viewport]'); if (vm && vm.content.indexOf('user-scalable') < 0) vm.content += ', maximum-scale=1, user-scalable=no';
