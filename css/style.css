@@ -155,7 +155,9 @@
   html, body { overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
   body.play, canvas { touch-action: none; }
   .overlay { touch-action: pan-y; }
-  .hud, #news, #cap, #count, #hpList, #keys, #ovMenu .card, #ovPause .card, #ovEnd .card, .pickc { zoom: var(--s); }
+  .hud, #news, #cap, #count, #hpList, #keys { zoom: var(--s); }
+  .overlay .card, .pickc { max-width: none; }
+  .pickc.stack #cards { grid-template-columns: 1fr; } .pickc.stack .ucard { min-height: 0; padding: 12px 14px; }
   .tbtn { zoom: var(--ts); }
   #bScope { right: calc(max(18px, env(safe-area-inset-right, 0px)) + 108px); bottom: calc(max(22px, env(safe-area-inset-bottom, 0px)) + 164px); width: 58px; height: 58px; font-size: 12px; border-color: #b48cff; }
   #bScope.on { background: rgba(180, 140, 255, 0.4); }
